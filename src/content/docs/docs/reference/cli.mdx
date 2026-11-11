@@ -1,0 +1,159 @@
+---
+title: CLI reference
+description: Every deaddrop command, argument and flag.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+```txt
+deaddrop [OPTIONS] <COMMAND>
+```
+
+| Command | Purpose |
+| --- | --- |
+| [`serve`](#deaddrop-serve) | Download a torrent without seeding it, then serve the files over iroh |
+| [`fetch`](#deaddrop-fetch) | Download the files a deaddrop server is serving |
+| [`reset`](#deaddrop-reset) | Make a server serve a different torrent |
+| [`config`](#deaddrop-config) | Show, create or check the config file |
+| [`completions`](#deaddrop-completions) | Print a shell completion script |
+| `help` | Print help for a command |
+
+## Global options
+
+| Option | Env | Meaning |
+| --- | --- | --- |
+| `-c, --config <FILE>` | `DEADDROP_CONFIG` | TOML config file. Default: the platform config file, if it exists. Works with every command. |
+| `-h, --help` | | Short help. `--help` gives the full reference with examples. |
+| `-V, --version` | | Print the version. |
+
+---
+
+## `deaddrop serve`
+
+Download a torrent (leech only, no seeding), then serve its contents over iroh.
+
+```txt
+deaddrop serve [OPTIONS] <SOURCE>
+```
+
+| Argument / option | Env | Config key | Meaning |
+| --- | --- | --- | --- |
+| `<SOURCE>` | | | Magnet URI, http(s) URL of a `.torrent` file, or path to a local `.torrent` file |
+| `--multi-use[=BOOL]` | | `serve.multi_use` | Keep serving to any number of clients until Ctrl-C. `--multi-use=false` forces single use. |
+| `--data-dir <DIR>` | | `serve.data_dir` | Keep torrent data and the blob store here. Default: a temp dir deleted on exit. |
+| `--peer <IP:PORT>` | | `serve.peers` | Extra BitTorrent peer. Repeatable. |
+| `--notify <TYPE=URL>` | `DEADDROP_NOTIFY` | `serve.notify` | Send the ticket to `discord=<URL>` or `webhook=<URL>`. Add `+key` to also send the key. Repeatable; env is comma-separated. |
+| `--reset-token <TOKEN>` | `DEADDROP_RESET_TOKEN` | `serve.reset_token` | Enable `deaddrop reset`. At least 16 characters. |
+| `--wait-for-reset[=BOOL]` | | `serve.wait_for_reset` | Single use: after the download, delete the data and wait for a reset. Needs a reset token. Ignored with `--multi-use`. |
+
+```sh
+deaddrop serve 'magnet:?xt=urn:btih:...'
+deaddrop serve https://example.com/file.torrent --multi-use
+deaddrop serve ./file.torrent --data-dir /srv/deaddrop
+deaddrop serve ./file.torrent --notify discord=https://discord.com/api/webhooks/<id>/<token>
+DEADDROP_RESET_TOKEN=$(openssl rand -hex 32) deaddrop serve ./file.torrent --multi-use
+DEADDROP_RESET_TOKEN=$(openssl rand -hex 32) deaddrop serve ./file.torrent --wait-for-reset
+deaddrop serve ./file.torrent > tickets.txt   # one `<ticket> <key>` line per ticket
+```
+
+Guide: [Serving a torrent](/docs/guides/serving/).
+
+---
+
+## `deaddrop fetch`
+
+Download the data that a deaddrop server is serving, verify it and decrypt it.
+
+```txt
+deaddrop fetch [OPTIONS] <TICKET>
+```
+
+| Argument / option | Env | Config key | Meaning |
+| --- | --- | --- | --- |
+| `<TICKET>` | | | The ticket printed by `deaddrop serve` (starts with `blob`) |
+| `-o, --out <DIR>` | | `fetch.out` | Directory to write the files into. Default: `.` |
+| `--key <KEY>` | `DEADDROP_KEY` | | The decryption key (`AGE-SECRET-KEY-1...`). Prefer the env var. |
+
+```sh
+export DEADDROP_KEY=AGE-SECRET-KEY-1...
+deaddrop fetch blobaa...            # write files into the current directory
+deaddrop fetch blobaa... -o ~/dl    # write files into ~/dl
+```
+
+Guide: [Fetching files](/docs/guides/fetching/).
+
+---
+
+## `deaddrop reset`
+
+Make a server switch to a different torrent.
+
+```txt
+deaddrop reset [OPTIONS] <TICKET> <SOURCE>
+```
+
+| Argument / option | Env | Config key | Meaning |
+| --- | --- | --- | --- |
+| `<TICKET>` | | | Any ticket the server handed out (an old one is fine) |
+| `<SOURCE>` | | | Magnet URI, http(s) URL of a `.torrent` (fetched by the server), or a local `.torrent` (its contents are sent) |
+| `--token <TOKEN>` | `DEADDROP_RESET_TOKEN` | `reset.token` | The server's reset token |
+| `--no-wait` | | | Return once the server accepts the request, without waiting for the new ticket |
+
+```sh
+export DEADDROP_RESET_TOKEN=<token>
+deaddrop reset <ticket> 'magnet:?xt=urn:btih:...'
+deaddrop reset <ticket> ./other.torrent
+read -r TICKET KEY < <(deaddrop reset <ticket> https://example.com/x.torrent)
+```
+
+Guide: [Resetting a server](/docs/guides/resetting/).
+
+---
+
+## `deaddrop config`
+
+Show, create and check the TOML config file.
+
+| Subcommand | Meaning |
+| --- | --- |
+| `config path` | Print which config file would be used and whether it exists |
+| `config example` | Print a commented example config with every setting |
+| `config check` | Check the config file and print the settings it gives (secrets hidden) |
+
+```sh
+deaddrop config example > ~/.config/deaddrop/config.toml
+```
+
+Guide: [Config file](/docs/guides/config/).
+
+---
+
+## `deaddrop completions`
+
+Print a shell completion script to stdout.
+
+```txt
+deaddrop completions <SHELL>
+```
+
+`<SHELL>` is one of `bash`, `zsh`, `fish`, `powershell`, `elvish`.
+
+Guide: [Shell completions](/docs/guides/completions/).
+
+---
+
+## Output and exit status
+
+`serve` and `reset` print one `<ticket> <key>` line on **stdout** per ticket,
+and everything else on **stderr**.
+
+| Exit code | Meaning |
+| --- | --- |
+| `0` | Success, including a single-use server shutting down after its download, and Ctrl-C |
+| `1` | Error |
+| `2` | Bad command-line usage |
+
+<Aside>
+	`deaddrop --help` and `deaddrop help <command>` print this reference from the
+	binary itself, so they always match the version you have installed.
+</Aside>

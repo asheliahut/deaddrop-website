@@ -1,0 +1,96 @@
+---
+title: Installation
+description: Install deaddrop from a prebuilt binary or from source.
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+
+## Prebuilt binaries
+
+Prebuilt binaries are attached to every
+[GitHub release](https://github.com/asheliahut/deaddrop/releases), together
+with a combined `SHA256SUMS` file:
+
+| Platform | Targets |
+| --- | --- |
+| Linux (glibc) | `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu` |
+| Linux (static musl) | `x86_64-unknown-linux-musl`, `aarch64-unknown-linux-musl` |
+| macOS | `aarch64-apple-darwin` (Apple Silicon), `x86_64-apple-darwin` (Intel) |
+| Windows | `x86_64-pc-windows-msvc`, `aarch64-pc-windows-msvc` |
+
+Archives are named `deaddrop-<version>-<target>.tar.gz` (`.zip` on Windows)
+and contain the binary, `README.md`, `config.example.toml` and `LICENSE`.
+
+<Tabs syncKey="os">
+<TabItem label="Linux">
+
+```sh
+VERSION=v0.1.0
+TARGET=x86_64-unknown-linux-musl   # static build; or aarch64-unknown-linux-musl, *-linux-gnu
+curl -LO "https://github.com/asheliahut/deaddrop/releases/download/$VERSION/deaddrop-$VERSION-$TARGET.tar.gz"
+tar -xzf "deaddrop-$VERSION-$TARGET.tar.gz"
+sudo install "deaddrop-$VERSION-$TARGET/deaddrop" /usr/local/bin/
+```
+
+</TabItem>
+<TabItem label="macOS">
+
+```sh
+VERSION=v0.1.0
+TARGET=aarch64-apple-darwin        # or x86_64-apple-darwin on Intel
+curl -LO "https://github.com/asheliahut/deaddrop/releases/download/$VERSION/deaddrop-$VERSION-$TARGET.tar.gz"
+tar -xzf "deaddrop-$VERSION-$TARGET.tar.gz"
+sudo install "deaddrop-$VERSION-$TARGET/deaddrop" /usr/local/bin/
+```
+
+</TabItem>
+<TabItem label="Windows">
+
+```powershell
+$v = "v0.1.0"
+$t = "x86_64-pc-windows-msvc"      # or aarch64-pc-windows-msvc
+Invoke-WebRequest "https://github.com/asheliahut/deaddrop/releases/download/$v/deaddrop-$v-$t.zip" -OutFile deaddrop.zip
+Expand-Archive deaddrop.zip -DestinationPath .
+# then move deaddrop-$v-$t\deaddrop.exe somewhere on your PATH
+```
+
+</TabItem>
+</Tabs>
+
+### Verify the download
+
+Each archive has a `.sha256` file next to it, and `SHA256SUMS` lists them all:
+
+```sh
+curl -LO "https://github.com/asheliahut/deaddrop/releases/download/$VERSION/SHA256SUMS"
+sha256sum --check --ignore-missing SHA256SUMS     # macOS: shasum -a 256 -c --ignore-missing SHA256SUMS
+```
+
+## From source
+
+You need a recent stable [Rust toolchain](https://rustup.rs) (deaddrop uses the
+2024 edition):
+
+```sh
+cargo install --locked --git https://github.com/asheliahut/deaddrop
+```
+
+Or clone and build:
+
+```sh
+git clone https://github.com/asheliahut/deaddrop
+cd deaddrop
+cargo build --release --locked
+./target/release/deaddrop --version
+```
+
+<Aside>
+	Release builds log nothing by default. See [Logging](/docs/guides/scripting/#logging)
+	to turn logs on.
+</Aside>
+
+## Next
+
+- Set up [shell completions](/docs/guides/completions/).
+- Write a [config file](/docs/guides/config/): `deaddrop config example > ~/.config/deaddrop/config.toml`.
+- Try the [quick start](/docs/quick-start/).

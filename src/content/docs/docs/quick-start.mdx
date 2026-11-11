@@ -1,0 +1,62 @@
+---
+title: Quick start
+description: Serve a torrent from a server and fetch it on a client in two commands.
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+
+You need `deaddrop` on two machines: a **server** that downloads the torrent
+and a **client** that receives it. See [Installation](/docs/installation/).
+Neither machine needs an open port.
+
+<Steps>
+
+1. **Start the server.** Give it a magnet URI, an http(s) URL of a `.torrent`
+   file, or a local `.torrent` path:
+
+   ```sh
+   deaddrop serve 'magnet:?xt=urn:btih:...'
+   ```
+
+   The server downloads the torrent in leech-only mode, stops the torrent
+   session, encrypts every file, deletes the plaintext, and prints one line on
+   stdout:
+
+   ```txt
+   blobafk3...q7z AGE-SECRET-KEY-1QX...
+   ```
+
+   The first word is the **ticket** and the second is the **decryption key**.
+
+2. **Hand over the ticket and the key.** Send them to whoever runs the client,
+   ideally over **different channels**. Anyone with the ticket can download the
+   ciphertext. The key is needed to read it.
+
+3. **Fetch on the client.**
+
+   ```sh
+   export DEADDROP_KEY=AGE-SECRET-KEY-1QX...
+   deaddrop fetch blobafk3...q7z -o ./downloads
+   ```
+
+   The client connects to the server over iroh, downloads the encrypted
+   collection, checks every chunk against its BLAKE3 hash, decrypts the files,
+   and writes them out under their original names.
+
+4. **Done.** By default the server is single use: once the client has
+   everything and disconnects, it shuts down and its temporary directory is
+   deleted.
+
+</Steps>
+
+<Aside type="tip">
+	Put the key in `DEADDROP_KEY` rather than passing `--key` on the command line,
+	so it stays out of your shell history and `ps`.
+</Aside>
+
+## Where to go next
+
+- Keep serving to many clients with [`--multi-use`](/docs/guides/serving/#single-use-vs-multi-use).
+- Swap a running server to a new torrent with [`deaddrop reset`](/docs/guides/resetting/).
+- Push tickets to Discord or a webhook with [notifications](/docs/guides/notifications/).
+- Put your settings in a [config file](/docs/guides/config/).

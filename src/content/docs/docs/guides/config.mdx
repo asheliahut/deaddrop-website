@@ -1,0 +1,80 @@
+---
+title: Config file
+description: Put every setting in a TOML file, and understand where it's read from and how it's merged.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Every setting can live in a TOML file. The binary can write a commented
+template for you:
+
+```sh
+deaddrop config example > ~/.config/deaddrop/config.toml   # write a commented template
+deaddrop config path                                       # which file is used, and does it exist?
+deaddrop config check                                      # validate it and show the settings (secrets hidden)
+```
+
+## Example
+
+```toml title="~/.config/deaddrop/config.toml"
+log = "off"                       # same syntax as RUST_LOG; "off" = no logs (the release default)
+
+[serve]
+multi_use = false
+data_dir = "/var/lib/deaddrop"
+peers = ["192.168.1.10:6881"]
+# reset_token = "<long random string>"     # see "Resetting a server"
+# wait_for_reset = false                    # single use: stay up for resets
+
+# Notifiers get the ticket only; include_key = true also sends the decryption key.
+[[serve.notify]]
+type = "discord"
+url = "https://discord.com/api/webhooks/<id>/<token>"
+
+[[serve.notify]]
+type = "webhook"
+url = "https://example.com/hooks/deaddrop"
+include_key = true                # this one also gets the key (default: false)
+
+[fetch]
+out = "/home/me/Downloads"
+
+[reset]
+# token = "<long random string>"           # used by `deaddrop reset`
+```
+
+Every key is documented in the [config reference](/docs/reference/config/).
+
+## Where it's read from
+
+`--config <file>` or `DEADDROP_CONFIG`. Otherwise deaddrop uses the platform
+config dir **if the file exists**:
+
+| OS | Default path |
+| --- | --- |
+| Linux | `~/.config/deaddrop/config.toml` (respects `$XDG_CONFIG_HOME`) |
+| macOS | `~/Library/Application Support/deaddrop/config.toml` |
+| Windows | `%APPDATA%\deaddrop\config\config.toml` |
+
+A missing default file is fine. A missing `--config` file is an error.
+
+## Precedence
+
+**command-line flag > environment variable > config file > default**
+
+For lists (`peers`, `notify`) the first source that has any entries wins;
+they aren't merged.
+
+## Rules
+
+- **Relative paths** (`data_dir`, `out`) are resolved against the config
+  file's directory.
+- **Typos are errors:** unknown keys or notifier types fail at startup with
+  the line and column.
+- The torrent source and the fetch ticket are per-run inputs, so they stay on
+  the command line.
+
+<Aside type="caution" title="It holds secrets">
+	Once the file has webhook URLs or reset tokens it is a secret. On Unix,
+	deaddrop warns if other users can read it. `chmod 600` fixes that.
+</Aside>

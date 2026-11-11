@@ -1,0 +1,25 @@
+---
+// The landing-page flow diagram, re-themed with Starlight's color tokens so it
+// works in both light and dark docs themes.
+import Flow from './Flow.astro';
+---
+
+<div class="docs-flow not-content">
+	<Flow />
+</div>
+
+<style>
+	.docs-flow {
+		--line: var(--sl-color-gray-5);
+		--panel: var(--sl-color-gray-6);
+		--fg: var(--sl-color-white);
+		--fg-2: var(--sl-color-gray-2);
+		--muted: var(--sl-color-gray-3);
+		--lime: var(--sl-color-accent);
+		--lime-dim: var(--sl-color-accent);
+		--mono: var(--sl-font-mono);
+		margin: 1.5rem 0 2rem;
+		font-size: 1rem;
+		line-height: 1.5;
+	}
+</style>

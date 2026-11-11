@@ -1,0 +1,32 @@
+---
+title: No seeding
+description: How deaddrop makes sure it never uploads torrent data to the swarm.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+deaddrop is a **leech-only** BitTorrent client. Three independent layers make
+sure it never seeds:
+
+1. **Upload is compiled out.** The torrent session is built with librqbit's
+   `disable-upload` feature, so it never sends piece data to peers.
+2. **No listener.** There is no incoming BitTorrent listener, so peers can't
+   connect to the server to ask for pieces.
+3. **The swarm is gone before serving starts.** When the download finishes,
+   the torrent is removed from the session and the session (DHT, trackers,
+   peer connections) is stopped before iroh starts serving.
+
+After step 3, the only thing the server talks is iroh, and only to clients
+holding a ticket.
+
+<Aside type="caution" title="What the swarm can still see">
+	While it leeches, the BitTorrent swarm, trackers and DHT can see the server's
+	IP address. That's inherent to downloading a torrent. See the
+	[threat model](/docs/concepts/threat-model/).
+</Aside>
+
+<Aside type="note">
+	deaddrop uploading torrent piece data to the swarm, or accepting incoming
+	BitTorrent connections, is a security bug. Please
+	[report it privately](/docs/project/security/).
+</Aside>

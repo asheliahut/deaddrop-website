@@ -1,0 +1,70 @@
+---
+title: Resetting a server
+description: Point a running server at a different torrent with `deaddrop reset`.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+A server started with a reset token can be told to serve a different torrent
+without restarting it.
+
+```sh
+# server
+export DEADDROP_RESET_TOKEN=$(openssl rand -hex 32)
+deaddrop serve first.torrent --multi-use
+
+# anywhere that has the ticket and the token
+export DEADDROP_RESET_TOKEN=<same token>
+deaddrop reset <ticket> 'magnet:?xt=urn:btih:...'   # or an http(s) .torrent URL, or a local .torrent file
+```
+
+## How it behaves
+
+- **Sources:** a magnet URI, an http(s) URL (the server fetches it), or a local
+  `.torrent` file (its contents are sent to the server). The server never
+  treats a reset source as a path on its own disk.
+- **No downtime:** the server keeps serving the current torrent while the new
+  one downloads. If the download fails, nothing changes and `reset` reports
+  the error.
+- **New ticket, new key:** once the new torrent is ready, the server prints
+  the new ticket and its new decryption key (another line on stdout), sends
+  them to the notifiers with `"reset": true`, and `deaddrop reset` prints them
+  too.
+- **The old ticket stops working.** Transfers already in progress finish, then
+  the old torrent's files are deleted, also from a `--data-dir`.
+- **One at a time:** a second request is refused while one is downloading.
+- **Any ticket works:** any ticket the server handed out works for `reset`,
+  even one that no longer downloads anything. Only its endpoint address is used.
+- **Single use:** a single-use server allows one download of each torrent it
+  switches to. Without [`--wait-for-reset`](/docs/guides/wait-for-reset/) it
+  still exits after that download.
+
+## Options
+
+| Flag | Meaning |
+| --- | --- |
+| `TICKET` | Any ticket this server handed out. |
+| `SOURCE` | Magnet URI, http(s) URL of a `.torrent`, or path to a local `.torrent`. |
+| `--token <TOKEN>` | The server's reset token. Also `DEADDROP_RESET_TOKEN` or `[reset] token` in the config file. |
+| `--no-wait` | Return as soon as the server accepts the request, without waiting for the new ticket. |
+
+By default `reset` waits and prints `<ticket> <key>` on stdout, so you can
+capture it:
+
+```sh
+read -r TICKET KEY < <(deaddrop reset <ticket> https://example.com/x.torrent)
+```
+
+## Security
+
+- Resets use their own iroh protocol (`deaddrop/reset/0`) on the same
+  endpoint, and it is only enabled when a token is set.
+- The token must be at least **16 characters**. `openssl rand -hex 32` makes a
+  good one.
+- A wrong token is refused after a short delay.
+
+<Aside type="caution">
+	Anyone who has a ticket **and** the token can switch the server to any
+	torrent. Keep the token out of shell history and `ps` by using
+	`DEADDROP_RESET_TOKEN` or the config file (`chmod 600`).
+</Aside>

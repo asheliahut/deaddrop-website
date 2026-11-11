@@ -1,0 +1,80 @@
+---
+title: Adding a notifier
+description: Add a new notification target (Slack, Matrix, ntfy...) in about two files.
+---
+
+import { Steps, FileTree } from '@astrojs/starlight/components';
+
+Notifiers live in `src/notify/`:
+
+<FileTree>
+- src/notify/
+  - mod.rs `Notifier` trait, `NotifierConfig`, `Event`
+  - discord.rs
+  - webhook.rs
+  - **slack.rs** your new notifier
+</FileTree>
+
+<Steps>
+
+1. Create `src/notify/slack.rs` with a struct that implements the `Notifier`
+   trait: `label()` and `send(&Event)`.
+
+2. Register it in `src/notify/mod.rs`:
+   - add `mod slack;`
+   - add a `Slack { ... }` variant to `NotifierConfig` with the settings it needs
+   - add an arm to the `match` in `NotifierConfig::build`
+
+</Steps>
+
+The variant's fields are what users write in their `[[serve.notify]]` table
+(`type = "slack"` plus those fields). If its main setting is called `url`, the
+`--notify slack=<url>` shorthand works with no extra code.
+
+## A starting point
+
+The generic webhook notifier is the smallest one to copy:
+
+```rust title="src/notify/webhook.rs"
+use anyhow::Result;
+
+use super::{BoxFuture, Event, Notifier, parse_http_url, post_json};
+
+pub struct Webhook {
+    url: reqwest::Url,
+    http: reqwest::Client,
+}
+
+impl Webhook {
+    pub fn new(target: &str, http: reqwest::Client) -> Result<Self> {
+        Ok(Self {
+            url: parse_http_url(target)?,
+            http,
+        })
+    }
+}
+
+impl Notifier for Webhook {
+    fn label(&self) -> String {
+        // Host only: the path or query string may carry a token.
+        format!("webhook ({})", self.url.host_str().unwrap_or("?"))
+    }
+
+    fn send<'a>(&'a self, event: &'a Event) -> BoxFuture<'a, Result<()>> {
+        Box::pin(post_json(&self.http, &self.url, event))
+    }
+}
+```
+
+## Rules of thumb
+
+- **Never log the URL.** `label()` should only show something safe, like the host.
+- **Respect the key.** The event only carries `key` for notifiers with
+  `include_key`. Don't send it anywhere else.
+- **Escape user content.** Torrent names are untrusted. The Discord notifier
+  escapes markdown and turns mentions off.
+
+## New events
+
+New kinds of events (e.g. "client finished downloading") are variants of the
+`Event` enum, and each notifier decides how to render them.

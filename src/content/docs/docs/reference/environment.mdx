@@ -1,0 +1,18 @@
+---
+title: Environment variables
+description: Environment variables deaddrop reads.
+---
+
+| Variable | Used by | Same as | Meaning |
+| --- | --- | --- | --- |
+| `DEADDROP_CONFIG` | all commands | `--config` | Path to the config file |
+| `DEADDROP_KEY` | `fetch` | `--key` | Decryption key (`AGE-SECRET-KEY-1...`) |
+| `DEADDROP_NOTIFY` | `serve` | `--notify` | Comma-separated notifiers, e.g. `discord=https://...,webhook+key=https://...` |
+| `DEADDROP_RESET_TOKEN` | `serve`, `reset` | `--reset-token`, `--token` | Reset token |
+| `RUST_LOG` | all commands | `log` in the config file | Log filter, e.g. `info` or `deaddrop=debug,librqbit=info`. `off` disables logging. |
+
+Precedence: **command-line flag > environment variable > config file > default**.
+
+Values of the secret variables (`DEADDROP_KEY`, `DEADDROP_NOTIFY`,
+`DEADDROP_RESET_TOKEN`, `DEADDROP_CONFIG`) are hidden from `--help` output.
+Prefer them over flags so secrets stay out of shell history and `ps`.

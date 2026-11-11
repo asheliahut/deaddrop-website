@@ -1,0 +1,63 @@
+---
+title: Shell completions
+description: Install tab completion for bash, zsh, fish, PowerShell and elvish.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+`deaddrop completions <shell>` prints a completion script to stdout. Install
+it once, then open a new shell.
+
+<Tabs syncKey="shell">
+<TabItem label="bash">
+
+```sh
+deaddrop completions bash > ~/.local/share/bash-completion/completions/deaddrop
+```
+
+</TabItem>
+<TabItem label="zsh">
+
+```sh
+deaddrop completions zsh > ~/.zfunc/_deaddrop
+```
+
+`~/.zfunc` must be in `$fpath` before `compinit` runs. Add this to `~/.zshrc`,
+before any plugin manager that calls `compinit`:
+
+```sh
+fpath=(~/.zfunc $fpath); autoload -U compinit; compinit
+```
+
+</TabItem>
+<TabItem label="fish">
+
+```sh
+deaddrop completions fish > ~/.config/fish/completions/deaddrop.fish
+```
+
+</TabItem>
+<TabItem label="PowerShell">
+
+```powershell
+deaddrop completions powershell >> $PROFILE
+```
+
+</TabItem>
+<TabItem label="elvish">
+
+```sh
+deaddrop completions elvish >> ~/.config/elvish/rc.elv
+```
+
+</TabItem>
+</Tabs>
+
+## Current session only
+
+```sh
+source <(deaddrop completions bash)
+source <(deaddrop completions zsh)
+```
+
+Re-run the install after upgrading deaddrop so new flags complete too.

@@ -1,0 +1,81 @@
+/* deaddrop docs theme: dark ink + phosphor lime. */
+
+:root {
+	--sl-font: 'Space Grotesk Variable', ui-sans-serif, system-ui, sans-serif;
+	--sl-font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* Dark mode */
+:root,
+::backdrop {
+	--sl-color-accent-low: #1d2a0c;
+	--sl-color-accent: #84cc16;
+	--sl-color-accent-high: #d9f99d;
+	--sl-color-white: #f4f6f3;
+	--sl-color-gray-1: #e3e7e1;
+	--sl-color-gray-2: #b9c0b6;
+	--sl-color-gray-3: #8a9387;
+	--sl-color-gray-4: #555d53;
+	--sl-color-gray-5: #343a33;
+	--sl-color-gray-6: #1c201c;
+	--sl-color-black: #0b0d0c;
+}
+
+/* Light mode */
+:root[data-theme='light'],
+[data-theme='light'] ::backdrop {
+	--sl-color-accent-low: #e6f7c4;
+	--sl-color-accent: #3f6212;
+	--sl-color-accent-high: #1a2e05;
+	--sl-color-white: #0b0d0c;
+	--sl-color-gray-1: #1c201c;
+	--sl-color-gray-2: #343a33;
+	--sl-color-gray-3: #555d53;
+	--sl-color-gray-4: #8a9387;
+	--sl-color-gray-5: #c4cbc1;
+	--sl-color-gray-6: #eef1ec;
+	--sl-color-gray-7: #f7f9f6;
+	--sl-color-black: #ffffff;
+}
+
+.site-title {
+	font-family: var(--sl-font-mono);
+	font-weight: 700;
+	letter-spacing: -0.02em;
+}
+
+.sl-markdown-content h1,
+.sl-markdown-content h2,
+.sl-markdown-content h3,
+h1#_top {
+	letter-spacing: -0.02em;
+}
+
+/* Subtle scanline texture on the dark header */
+:root:not([data-theme='light']) header.header {
+	background-image: repeating-linear-gradient(
+		0deg,
+		transparent 0 2px,
+		rgb(132 204 22 / 0.025) 2px 3px
+	);
+}
+
+/* Redaction bar used in docs prose: <span class="redact">secret</span> */
+.redact {
+	background: var(--sl-color-white);
+	color: transparent;
+	border-radius: 2px;
+	padding: 0 0.15em;
+	transition: color 0.2s, background 0.2s;
+	cursor: help;
+}
+.redact:hover,
+.redact:focus {
+	background: var(--sl-color-accent-low);
+	color: var(--sl-color-accent-high);
+}
+
+/* Flag tables: keep the flag column compact */
+.sl-markdown-content table td:first-child code {
+	white-space: nowrap;
+}

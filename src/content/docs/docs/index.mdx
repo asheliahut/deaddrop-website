@@ -1,0 +1,73 @@
+---
+title: Introduction
+description: What deaddrop is, what it does, and when to reach for it.
+---
+
+import { Card, CardGrid, LinkCard, Aside } from '@astrojs/starlight/components';
+
+**deaddrop** leeches a torrent on a server, encrypts it, hands it to one client
+peer to peer, and leaves nothing behind.
+
+A server downloads a torrent **without seeding it**, encrypts the result with
+[age](https://age-encryption.org), then hands the files to a client over
+[iroh](https://iroh.computer): peer-to-peer QUIC with NAT traversal and relay
+fallback. Neither side needs an open port.
+
+```sh
+# on the server
+deaddrop serve 'magnet:?xt=urn:btih:...'
+# ...prints:  <ticket> AGE-SECRET-KEY-1...
+
+# on the client
+DEADDROP_KEY=AGE-SECRET-KEY-1... deaddrop fetch <ticket> -o ./downloads
+```
+
+That's it. The server exits once the client has everything.
+
+## Why
+
+- You want a box with a fat pipe to fetch something, and you want the result on
+  your laptop, without the box ever **uploading** to the swarm.
+- You don't want to open ports, set up SFTP, or leave a copy sitting on a
+  server afterwards.
+- You want the bytes in transit, and on the server's disk at rest, to be
+  **ciphertext** that only the holder of the key can read.
+
+## Features
+
+<CardGrid>
+	<Card title="Zero seeding" icon="close">
+		librqbit's `disable-upload`, no incoming BitTorrent listener, and the swarm
+		session is torn down before serving starts.
+	</Card>
+	<Card title="End-to-end encrypted" icon="seti:lock">
+		Every file is age-encrypted with a fresh per-torrent key that never touches
+		the server's disk. File names are hidden too.
+	</Card>
+	<Card title="NAT-proof" icon="rocket">
+		iroh punches through NATs and falls back to relays.
+	</Card>
+	<Card title="Verified delivery" icon="approve-check">
+		Every chunk is checked against its BLAKE3 hash. Tampering or a wrong key
+		fails loudly.
+	</Card>
+	<Card title="Single use by default" icon="star">
+		One client, one download, then the server shuts down, or wipes the data
+		and waits.
+	</Card>
+	<Card title="Hot swaps & notifications" icon="random">
+		`deaddrop reset` points a running server at a new torrent. Tickets can be
+		pushed to Discord or any webhook.
+	</Card>
+</CardGrid>
+
+<Aside type="caution" title="Use it responsibly">
+	Only download and share content you have the right to.
+</Aside>
+
+## Next steps
+
+<LinkCard title="Quick start" description="Serve and fetch your first drop in two commands." href="/docs/quick-start/" />
+<LinkCard title="Installation" description="Prebuilt binaries for Linux, macOS and Windows, or build from source." href="/docs/installation/" />
+<LinkCard title="How it works" description="The architecture, the no-seeding guarantee and the encryption design." href="/docs/concepts/architecture/" />
+<LinkCard title="GitHub" description="Source code, issues and releases." href="https://github.com/asheliahut/deaddrop" />

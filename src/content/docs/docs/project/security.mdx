@@ -1,0 +1,78 @@
+---
+title: Security policy
+description: How to report a vulnerability in deaddrop, and what's in scope.
+---
+
+import { Aside, LinkButton } from '@astrojs/starlight/components';
+
+deaddrop moves data that people want kept private, so security reports are
+taken seriously.
+
+<Aside type="danger" title="Don't report in public">
+	Please do not open a public issue, discussion or pull request for a security
+	problem.
+</Aside>
+
+## Reporting a vulnerability
+
+Report it privately through GitHub's private vulnerability reporting (the
+**Security** tab → **Report a vulnerability**):
+
+<LinkButton href="https://github.com/asheliahut/deaddrop/security/advisories/new" icon="external" variant="primary">
+	Report a vulnerability
+</LinkButton>
+
+Please include, as far as you can:
+
+- The deaddrop version (`deaddrop --version`) or commit, and your platform.
+- Which command and options are involved (`serve`, `fetch`, `reset`,
+  notifiers, config file).
+- What an attacker needs (the ticket, the key, network position, a reset
+  token, local access to the server, ...) and what they gain.
+- Steps to reproduce, or a proof of concept.
+
+Leave real tickets, keys, reset tokens and webhook URLs out of the report, or
+rotate them first.
+
+## Supported versions
+
+deaddrop is pre-1.0. Only the latest release gets security fixes.
+
+| Version | Supported |
+| --- | --- |
+| Latest release | ✅ |
+| Older releases | ❌ |
+| `main` | ✅ (best effort) |
+
+## What to expect
+
+deaddrop is maintained by volunteers, so these are goals rather than
+guarantees:
+
+- An acknowledgement within **7 days**.
+- A first assessment (accepted, needs more info, or out of scope) within
+  **14 days**.
+- For accepted reports, a fix and a release as soon as practical, followed by
+  a published GitHub security advisory. You'll be credited in the advisory
+  unless you'd rather not be.
+
+Please give us a reasonable chance to ship a fix before disclosing publicly.
+If 90 days pass without a fix, or without an agreed timeline, you're free to
+disclose.
+
+## Scope
+
+In scope are problems in deaddrop's own code that break what it promises. See
+[Threat model → Promises](/docs/concepts/threat-model/#promises) for the list,
+plus crashes or resource exhaustion that a remote peer can trigger cheaply.
+
+Out of scope are the [known limits](/docs/concepts/threat-model/#known-limits)
+and content legality, or what users choose to share.
+
+Bugs in dependencies (iroh, iroh-blobs, librqbit, age/rage, ...) should go to
+those projects. If deaddrop uses a dependency in a way that makes it
+exploitable, or ships a version with a known advisory, report it here.
+
+The canonical policy is
+[SECURITY.md](https://github.com/asheliahut/deaddrop/blob/main/SECURITY.md) in
+the repository.

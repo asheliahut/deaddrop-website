@@ -1,0 +1,77 @@
+---
+title: Architecture
+description: The path a drop takes, from the BitTorrent swarm to the client's disk.
+---
+
+import { Steps } from '@astrojs/starlight/components';
+import FlowDiagram from '../../../../components/DocsFlow.astro';
+
+<FlowDiagram />
+
+deaddrop has two halves, both in one binary:
+
+- **`deaddrop serve`** runs on a machine with a good connection. It leeches
+  the torrent, encrypts it and serves the ciphertext over iroh.
+- **`deaddrop fetch`** runs wherever you want the files. It downloads,
+  verifies and decrypts.
+
+## The life of a drop
+
+<Steps>
+
+1. **Leech.** [librqbit](https://github.com/ikatson/rqbit), built with
+   `disable-upload`, downloads the torrent. There is no incoming BitTorrent
+   listener. See [No seeding](/docs/concepts/no-seeding/).
+
+2. **Tear down the swarm.** The torrent is removed from the session and the
+   session (DHT, trackers, peer connections) is stopped **before** iroh starts
+   serving.
+
+3. **Seal.** A new X25519 [age](https://age-encryption.org) key is generated
+   in memory. Each file is encrypted to it and the plaintext is deleted as soon
+   as it's encrypted. Real names go into an encrypted manifest,
+   `deaddrop-manifest.age`. See [Encryption](/docs/concepts/encryption/).
+
+4. **Publish.** The encrypted files are imported into an
+   [iroh-blobs](https://github.com/n0-computer/iroh-blobs) store by reference
+   (not copied) and grouped into one collection: the encrypted manifest first,
+   then the files, named by index only (`0`, `1`, `2`…). The server only
+   answers `get` requests for that collection. The server prints a **ticket**: the collection hash plus the server's
+   iroh endpoint address.
+
+5. **Transfer.** The client dials the endpoint from the ticket. iroh tries a
+   direct QUIC connection with NAT hole punching and falls back to a relay, so
+   neither side needs an open port. Every chunk is verified against its BLAKE3
+   hash as it arrives.
+
+6. **Open.** The client decrypts the manifest, then each file, and writes them
+   under their real names. Wrong key or tampered data is an error.
+
+7. **Vanish.** A single-use server shuts down (or, with `--wait-for-reset`,
+   deletes the data and waits). A temp data directory is deleted on exit.
+
+</Steps>
+
+## Protocols on the endpoint
+
+| ALPN | Purpose | Enabled |
+| --- | --- | --- |
+| iroh-blobs | Serves the encrypted collection | Always |
+| `deaddrop/reset/0` | Accepts `deaddrop reset` requests | Only when a reset token is set |
+
+## Source layout
+
+For contributors, the [source](https://github.com/asheliahut/deaddrop/tree/main/src)
+is small:
+
+| File | Role |
+| --- | --- |
+| `cli.rs` | Command-line definition and help text |
+| `config.rs` | TOML config loading and precedence |
+| `torrent.rs` | Leech-only BitTorrent download via librqbit |
+| `crypt.rs` | age encryption, the manifest, decryption |
+| `server.rs` | `serve`: blob store, iroh router, single-use lifecycle |
+| `gate.rs` | Decides which blob requests are answered: only `get` for the current collection, one client at a time in single use |
+| `reset.rs` | The `deaddrop/reset/0` protocol, server and client side |
+| `client.rs` | `fetch`: download, verify, decrypt |
+| `notify/` | Discord and webhook notifiers |

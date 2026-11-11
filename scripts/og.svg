@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <pattern id="g" width="48" height="48" patternUnits="userSpaceOnUse"><path d="M48 0H0V48" fill="none" stroke="#1d231f" stroke-width="1"/></pattern>
+    <radialGradient id="glow" cx="0.5" cy="0" r="0.8"><stop offset="0" stop-color="#a3e635" stop-opacity=".22"/><stop offset="1" stop-color="#a3e635" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="#0b0d0c"/>
+  <rect width="1200" height="630" fill="url(#g)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+  <g transform="translate(80 92) scale(2.6)" fill="none" stroke="#a3e635" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3 4 9.5v13L16 29l12-6.5v-13Z"/><path d="M4 9.5 16 16l12-6.5M16 16v13"/><path d="M10 6.3 22 12.8" stroke-dasharray="2.4 2.6"/></g>
+  <text x="185" y="152" font-family="DejaVu Sans Mono, monospace" font-weight="700" font-size="54" fill="#f4f6f3">deaddrop</text>
+  <text x="80" y="300" font-family="DejaVu Sans, sans-serif" font-weight="700" font-size="76" fill="#f4f6f3" letter-spacing="-2">Leech it. Lock it. Drop it.</text>
+  <text x="80" y="390" font-family="DejaVu Sans, sans-serif" font-weight="700" font-size="76" fill="#a3e635" letter-spacing="-2">Leave nothing behind.</text>
+  <text x="80" y="480" font-family="DejaVu Sans, sans-serif" font-size="28" fill="#b9c0b6">Leech a torrent on a server. Encrypt it. Hand it to one client, peer to peer.</text>
+  <text x="80" y="560" font-family="DejaVu Sans Mono, monospace" font-size="26" fill="#828c7f">deaddrop.rip  ·  github.com/asheliahut/deaddrop</text>
+</svg>

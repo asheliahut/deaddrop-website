@@ -1,0 +1,47 @@
+---
+title: Webhook payload
+description: The JSON body the `webhook` notifier POSTs.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The `webhook` notifier sends a `POST` with a JSON body when a ticket is ready.
+
+```json title="POST <your url>"
+{
+  "event": "ticket_ready",
+  "name": "ubuntu-24.04.iso",
+  "ticket": "blob...",
+  "fetch_command": "deaddrop fetch blob...",
+  "files": 1,
+  "total_bytes": 6114656256,
+  "single_use": true,
+  "reset": false,
+  "key": "AGE-SECRET-KEY-1..."
+}
+```
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `event` | string | Always `"ticket_ready"` for now. New event types may be added, so ignore ones you don't know. |
+| `name` | string | The torrent's name |
+| `ticket` | string | The iroh ticket to pass to `deaddrop fetch` |
+| `fetch_command` | string | The full command a client should run |
+| `files` | number | Number of files |
+| `total_bytes` | number | Total size in bytes |
+| `single_use` | bool | `true` if the server shuts down (or waits for a reset) after one download |
+| `reset` | bool | `true` if this ticket replaces an earlier one after a reset. The old ticket no longer works. |
+| `key` | string | The decryption key. **Only present** for notifiers with `include_key = true` / `+key`. |
+
+## Delivery
+
+- One attempt per ticket, with a **15 s** timeout.
+- A failure (error status, unreachable host, timeout) is logged as a warning
+  and the server keeps serving.
+- Logs show only the webhook's host, never its full URL, since the path or
+  query string may carry a token.
+
+<Aside type="tip">
+	Run a receiver that gets the key on a different host than the one that gets
+	the ticket, so one leak isn't enough to read the data.
+</Aside>

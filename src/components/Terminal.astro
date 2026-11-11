@@ -1,0 +1,232 @@
+---
+// Animated two-pane terminal: server on the left, client on the right.
+// Lines carry a pane + delay; a tiny script reveals them in order.
+// With prefers-reduced-motion everything is shown at once.
+
+type Line = { t: string; cls?: string; pane: 'server' | 'client' };
+
+const lines: Line[] = [
+	{ pane: 'server', cls: 'cmd', t: "deaddrop serve 'magnet:?xt=urn:btih:9f3c…'" },
+	{ pane: 'server', cls: 'dim', t: 'leeching ubuntu-24.04.iso · upload disabled' },
+	{ pane: 'server', cls: 'bar', t: '████████████████████ 100%  ↑ 0 B' },
+	{ pane: 'server', cls: 'dim', t: 'swarm session stopped (dht, trackers, peers)' },
+	{ pane: 'server', cls: 'dim', t: 'age-encrypted 1 file · plaintext deleted' },
+	{ pane: 'server', cls: 'ok', t: 'serving over iroh · single use' },
+	{ pane: 'server', cls: 'out', t: 'blobafk3…q7z AGE-SECRET-KEY-1QX…' },
+	{ pane: 'client', cls: 'cmd', t: 'export DEADDROP_KEY=AGE-SECRET-KEY-1QX…' },
+	{ pane: 'client', cls: 'cmd', t: 'deaddrop fetch blobafk3…q7z -o ./dl' },
+	{ pane: 'client', cls: 'dim', t: 'connecting · direct via hole punch' },
+	{ pane: 'client', cls: 'bar', t: '████████████████████ 6.1 GB  BLAKE3 ✓' },
+	{ pane: 'client', cls: 'dim', t: 'decrypting 1 file' },
+	{ pane: 'client', cls: 'ok', t: '✓ ubuntu-24.04.iso' },
+	{ pane: 'server', cls: 'dim', t: 'client finished · disconnected' },
+	{ pane: 'server', cls: 'warn', t: 'single use: shutting down. nothing left.' },
+];
+---
+
+<div class="term" data-terminal aria-label="Example deaddrop session: a server serves a torrent and a client fetches it">
+	<div class="term-bar">
+		<span class="dot"></span><span class="dot"></span><span class="dot"></span>
+		<span class="term-title">deaddrop — two machines, zero open ports</span>
+		<button class="replay" type="button" data-replay aria-label="Replay animation">↻ replay</button>
+	</div>
+	<div class="panes">
+		{
+			(['server', 'client'] as const).map((pane) => (
+				<div class="pane" data-pane={pane}>
+					<div class="pane-label">{pane === 'server' ? '🖥  server' : '💻  client'}</div>
+					<ol>
+						{lines.map((l, i) =>
+							l.pane === pane ? (
+								<li class={l.cls} data-step={i}>
+									{l.cls === 'cmd' && <span class="prompt">$ </span>}
+									{l.cls === 'out' && <span class="stdout">stdout ▸ </span>}
+									{l.t}
+								</li>
+							) : null
+						)}
+					</ol>
+				</div>
+			))
+		}
+	</div>
+	<p class="term-note">Output abridged for illustration.</p>
+</div>
+
+<script>
+	const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+	for (const term of document.querySelectorAll<HTMLElement>('[data-terminal]')) {
+		const items = [...term.querySelectorAll<HTMLElement>('[data-step]')].sort(
+			(a, b) => Number(a.dataset.step) - Number(b.dataset.step)
+		);
+		let timers: number[] = [];
+		const play = () => {
+			timers.forEach(clearTimeout);
+			timers = [];
+			if (reduce) {
+				items.forEach((el) => el.classList.add('shown'));
+				return;
+			}
+			items.forEach((el) => el.classList.remove('shown'));
+			let at = 400;
+			for (const el of items) {
+				const isCmd = el.classList.contains('cmd');
+				timers.push(window.setTimeout(() => el.classList.add('shown'), at));
+				at += isCmd ? 900 : el.classList.contains('bar') ? 1100 : 550;
+			}
+		};
+		term.querySelector('[data-replay]')?.addEventListener('click', play);
+		// Start when scrolled into view.
+		const io = new IntersectionObserver((entries) => {
+			if (entries.some((e) => e.isIntersecting)) {
+				play();
+				io.disconnect();
+			}
+		});
+		io.observe(term);
+	}
+</script>
+
+<style>
+	.term {
+		position: relative;
+		border: 1px solid var(--line);
+		border-radius: 14px;
+		background: linear-gradient(180deg, #0f1311 0%, #0a0c0b 100%);
+		box-shadow:
+			0 0 0 1px rgb(163 230 53 / 0.04),
+			0 30px 80px -20px rgb(0 0 0 / 0.8),
+			0 0 120px -40px rgb(163 230 53 / 0.25);
+		overflow: hidden;
+		font-family: var(--mono);
+		font-size: 0.8rem;
+		text-align: left;
+	}
+	.term-bar {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		padding: 10px 14px;
+		border-bottom: 1px solid var(--line);
+		background: #0d100f;
+	}
+	.dot {
+		width: 10px;
+		height: 10px;
+		border-radius: 50%;
+		background: #2a302b;
+	}
+	.term-title {
+		margin-left: 10px;
+		color: var(--muted);
+		font-size: 0.72rem;
+		overflow: hidden;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+	}
+	.replay {
+		margin-left: auto;
+		font: inherit;
+		font-size: 0.7rem;
+		color: var(--muted);
+		background: none;
+		border: 1px solid var(--line);
+		border-radius: 6px;
+		padding: 2px 8px;
+		cursor: pointer;
+		flex-shrink: 0;
+	}
+	.replay:hover {
+		color: var(--lime);
+		border-color: var(--lime-dim);
+	}
+	.panes {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+	}
+	.pane {
+		padding: 14px 16px 18px;
+		min-height: 260px;
+		min-width: 0;
+	}
+	.pane + .pane {
+		border-left: 1px dashed var(--line);
+	}
+	.pane-label {
+		font-size: 0.68rem;
+		text-transform: uppercase;
+		letter-spacing: 0.14em;
+		color: var(--muted);
+		margin-bottom: 10px;
+	}
+	ol {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+	li {
+		line-height: 1.75;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		opacity: 0;
+		transform: translateY(4px);
+		transition:
+			opacity 0.25s ease,
+			transform 0.25s ease;
+	}
+	li:global(.shown) {
+		opacity: 1;
+		transform: none;
+	}
+	.cmd {
+		color: #f4f6f3;
+	}
+	.prompt {
+		color: var(--lime);
+	}
+	.dim {
+		color: #7d877a;
+	}
+	.bar {
+		color: var(--lime);
+		letter-spacing: -0.04em;
+	}
+	.ok {
+		color: #bef264;
+	}
+	.warn {
+		color: #fca5a5;
+	}
+	.out {
+		color: #f4f6f3;
+		background: rgb(163 230 53 / 0.08);
+		border-radius: 4px;
+		padding: 0 6px;
+		margin-left: -6px;
+	}
+	.stdout {
+		color: var(--lime);
+		font-size: 0.7rem;
+	}
+	.term-note {
+		position: absolute;
+		right: 14px;
+		bottom: 6px;
+		margin: 0;
+		font-size: 0.62rem;
+		color: #4a5248;
+	}
+	@media (max-width: 760px) {
+		.panes {
+			grid-template-columns: 1fr;
+		}
+		.pane {
+			min-height: 0;
+		}
+		.pane + .pane {
+			border-left: 0;
+			border-top: 1px dashed var(--line);
+		}
+	}
+</style>

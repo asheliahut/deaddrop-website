@@ -1,0 +1,51 @@
+---
+title: Scripting & output
+description: stdout vs. stderr, capturing tickets, exit codes and logging.
+---
+
+## stdout is for tickets
+
+Each ticket goes to **stdout** as one `<ticket> <key>` line, and everything
+else (progress, status, warnings) goes to **stderr**. So this works:
+
+```sh
+deaddrop serve x.torrent > tickets.txt &
+# ...later
+read -r TICKET KEY < tickets.txt
+```
+
+After a [reset](/docs/guides/resetting/), the server prints the new ticket and
+key as another line. `deaddrop reset` prints the same line, so you can capture
+it directly:
+
+```sh
+read -r TICKET KEY < <(deaddrop reset "$TICKET" 'magnet:?xt=...')
+```
+
+## Exit status
+
+| Code | Meaning |
+| --- | --- |
+| `0` | Success, including a single-use server shutting down after its download, and Ctrl-C. |
+| `1` | Error. |
+| `2` | Bad command-line usage. |
+
+## Logging
+
+Release builds (`cargo build --release`) log nothing by default. Debug builds
+log warnings. Set `RUST_LOG` or `log` in the [config file](/docs/guides/config/)
+to change that, or `off` to turn logging off in any build:
+
+```sh
+RUST_LOG=info deaddrop serve x.torrent
+RUST_LOG=deaddrop=debug,librqbit=info deaddrop serve x.torrent
+```
+
+This only covers the log output from deaddrop and its libraries. The status
+lines (progress, the ticket, reset messages) are always printed to stderr.
+
+## Help
+
+`deaddrop --help` (or `deaddrop help <command>`) has the full reference:
+examples, environment variables, config precedence and exit codes. `-h` gives
+a shorter summary.

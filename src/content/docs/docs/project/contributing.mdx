@@ -1,0 +1,58 @@
+---
+title: Contributing
+description: How to build, test and send changes to deaddrop.
+---
+
+import { LinkCard, CardGrid, Aside } from '@astrojs/starlight/components';
+
+Issues and pull requests are welcome on
+[GitHub](https://github.com/asheliahut/deaddrop).
+
+<CardGrid>
+	<LinkCard title="Source code" href="https://github.com/asheliahut/deaddrop" description="asheliahut/deaddrop" />
+	<LinkCard title="Issues" href="https://github.com/asheliahut/deaddrop/issues" description="Bugs and feature requests" />
+	<LinkCard title="Pull requests" href="https://github.com/asheliahut/deaddrop/pulls" description="Send a change" />
+	<LinkCard title="This website" href="https://github.com/asheliahut/deaddrop-website" description="Fix a typo in these docs" />
+</CardGrid>
+
+## Before opening a PR
+
+Make sure CI will be happy:
+
+```sh
+cargo fmt --all
+cargo clippy --all-targets --locked -- -D warnings
+cargo test --locked
+```
+
+CI runs `fmt` and `clippy` on Linux, then builds and tests on Linux, macOS and
+Windows.
+
+## Testing locally
+
+`examples/seed.rs` seeds a local path on 127.0.0.1, so you can test without
+the public swarm:
+
+```sh
+cargo run --example seed -- ./some-dir       # prints magnet + peer address, writes ./some-dir.torrent
+cargo run -- serve ./some-dir.torrent --peer 127.0.0.1:<port>
+DEADDROP_KEY=<key> cargo run -- fetch <ticket> -o /tmp/out
+```
+
+Debug builds log warnings by default. Use `RUST_LOG=deaddrop=debug` for more.
+
+## Ideas
+
+Want a new notifier? See [Adding a notifier](/docs/project/adding-a-notifier/).
+It's about two files of work.
+
+<Aside type="caution" title="Security issues">
+	Please don't open a public issue for a security problem. See the
+	[security policy](/docs/project/security/).
+</Aside>
+
+## License
+
+deaddrop is free and unencumbered software released into the public domain.
+See [LICENSE](https://github.com/asheliahut/deaddrop/blob/main/LICENSE) or
+[unlicense.org](https://unlicense.org).

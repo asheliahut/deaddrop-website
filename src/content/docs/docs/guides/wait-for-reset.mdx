@@ -1,0 +1,56 @@
+---
+title: Single use, long running
+description: Use `--wait-for-reset` to run a long-lived dead drop where every torrent is downloaded exactly once.
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+
+`--wait-for-reset` turns a single-use server into a long-running dead drop
+where every torrent can be downloaded **exactly once**:
+
+```sh
+export DEADDROP_RESET_TOKEN=$(openssl rand -hex 32)
+deaddrop serve first.torrent --wait-for-reset
+
+DEADDROP_KEY=<key> deaddrop fetch <ticket>           # the one download
+deaddrop reset <ticket> 'magnet:?xt=...'             # any ticket from this server works
+DEADDROP_KEY=<new key> deaddrop fetch <new ticket>   # each torrent has its own key
+```
+
+## Lifecycle
+
+<Steps>
+
+1. The server serves the torrent to one client, as in normal single use.
+
+2. When that client has everything and disconnects (or 30 s after it has
+   everything), the ticket stops working and the torrent's files are deleted.
+   The blob store drops its copy within about 10 s. The server keeps running
+   but serves nothing.
+
+3. A [reset](/docs/guides/resetting/) downloads the next torrent and serves it
+   once more, with a new ticket and a new key. A reset can also replace a
+   torrent nobody has downloaded yet.
+
+</Steps>
+
+## Requirements
+
+- A reset token (`--reset-token`, `DEADDROP_RESET_TOKEN`, or
+  `serve.reset_token` in the config file).
+- Single use. `--wait-for-reset` is ignored with `--multi-use`.
+
+<Aside>
+	Nothing is deleted on Ctrl-C beyond what normal single use does: with
+	`--data-dir`, a torrent that wasn't downloaded yet stays on disk.
+</Aside>
+
+## As a config file
+
+```toml
+[serve]
+multi_use = false
+wait_for_reset = true
+reset_token = "<long random string>"   # or DEADDROP_RESET_TOKEN
+data_dir = "/var/lib/deaddrop"
+```

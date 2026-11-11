@@ -1,0 +1,43 @@
+---
+title: Fetching files
+description: Run `deaddrop fetch` to download, verify and decrypt a drop.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+```sh
+export DEADDROP_KEY=AGE-SECRET-KEY-1...           # the key from `serve`
+deaddrop fetch blobaa...                          # write files into the current directory
+deaddrop fetch blobaa... -o ~/dl                  # write files into ~/dl
+```
+
+## What happens
+
+1. The client connects to the server named in the ticket over iroh. It tries a
+   direct connection (with NAT hole punching) and falls back to a relay.
+2. It downloads the whole encrypted collection into a temporary folder,
+   `.deaddrop-<hash>`, inside the output folder, checking every chunk against
+   its BLAKE3 hash.
+3. It decrypts the manifest and each file with the key and writes them out
+   under their original names. Then the temporary folder is deleted.
+4. It disconnects, which lets a single-use server shut down.
+
+## Safety checks
+
+- A **wrong key** or **tampered data** is an error. age authenticates every
+  chunk, and no partial file is left under the real name.
+- File names that are **absolute** or contain **`..`** are refused, so a
+  malicious server can't make `fetch` write outside the output folder.
+
+## Options
+
+| Flag | Meaning |
+| --- | --- |
+| `TICKET` | The ticket printed by `deaddrop serve` (starts with `blob`). |
+| `-o, --out <DIR>` | Directory to write the files into. Default: the current directory, or `[fetch] out` from the config file. |
+| `--key <KEY>` | The decryption key (`AGE-SECRET-KEY-1...`). Prefer `DEADDROP_KEY`. |
+
+<Aside type="tip">
+	`--key` puts the key into your shell history and makes it visible in `ps`.
+	Use `DEADDROP_KEY` instead.
+</Aside>

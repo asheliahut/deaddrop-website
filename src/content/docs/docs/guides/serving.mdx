@@ -1,0 +1,89 @@
+---
+title: Serving a torrent
+description: Run `deaddrop serve` to leech a torrent, encrypt it and serve it over iroh.
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+```sh
+deaddrop serve 'magnet:?xt=urn:btih:...'          # single use: exits after one client finishes downloading
+deaddrop serve https://example.com/x.torrent      # .torrent URLs and local .torrent paths work too
+deaddrop serve file.torrent --multi-use           # keep serving to any number of clients until Ctrl-C
+deaddrop serve file.torrent --wait-for-reset      # one download per torrent, then wait for the next (needs a reset token)
+```
+
+## What happens
+
+<Steps>
+
+1. The torrent is downloaded with uploading disabled and no incoming BitTorrent
+   listener, so nothing is seeded. See [No seeding](/docs/concepts/no-seeding/).
+2. When it finishes, the torrent session is shut down: DHT, trackers and peers.
+3. Each file is encrypted with a new [age](https://age-encryption.org) (X25519)
+   key and the plaintext is deleted. The encrypted files are added to an iroh
+   blob store (by reference, not copied) and served as one collection. File
+   names are only stored inside an encrypted manifest.
+4. A ticket and the decryption key are printed as one `<ticket> <key>` line on
+   stdout. The ticket is sent to any configured
+   [notifiers](/docs/guides/notifications/), and the key only to those that ask
+   for it. The key is never written to the server's disk.
+
+</Steps>
+
+Give both to the client: `DEADDROP_KEY=<key> deaddrop fetch <ticket>`.
+
+## Sources
+
+`SOURCE` can be:
+
+- a **magnet URI**: `'magnet:?xt=urn:btih:...'` (quote it, the `?` and `&` are shell metacharacters)
+- an **http(s) URL** of a `.torrent` file
+- a **local path** to a `.torrent` file
+
+## Single use vs. multi use
+
+By default the server is **single use**:
+
+- It serves one client. While that client is connected, other clients are rejected.
+- Once that client has the whole collection and disconnects (or 30 s after the
+  transfer completes), the server shuts down. With
+  [`--wait-for-reset`](/docs/guides/wait-for-reset/) it deletes the data and waits instead.
+- If the client drops out before finishing, the next client can connect.
+
+`--multi-use` keeps serving to any number of clients until you press Ctrl-C.
+`--multi-use=false` forces single use even if the config file turns multi use on.
+
+## Options
+
+| Flag | Meaning |
+| --- | --- |
+| `--multi-use` | Keep serving to any number of clients until Ctrl-C. |
+| `--data-dir <DIR>` | Keep the torrent data and blob store here. If you leave this out, deaddrop uses a temp directory and deletes it on exit. |
+| `--peer <IP:PORT>` | Extra BitTorrent peer to connect to. Repeatable. Useful for private swarms or when DHT and trackers can't find peers. |
+| `--notify <TYPE=URL>` | Send the ticket somewhere when it's ready. Repeatable. See [Notifications](/docs/guides/notifications/). |
+| `--reset-token <TOKEN>` | Let `deaddrop reset` switch the server to a different torrent. Prefer `DEADDROP_RESET_TOKEN` or the config file. |
+| `--wait-for-reset` | Single use, needs a reset token: after the one download, delete the data and wait for a reset. |
+| `-c, --config <FILE>` | TOML [config file](/docs/guides/config/). |
+
+## Disk space
+
+Each plaintext file is deleted as soon as it is encrypted, so you need about
+**one extra file's worth** of disk space on top of the torrent itself. The
+encrypted files are imported into the iroh blob store by reference, so disk
+usage isn't doubled again.
+
+<Aside type="caution">
+	The plaintext exists on the server's disk while the torrent downloads, and
+	deleting a file doesn't securely erase it, especially on SSDs. If the server's
+	stderr goes to a persistent log (systemd journal, a log file), the key ends up
+	there too. See the [threat model](/docs/concepts/threat-model/).
+</Aside>
+
+## Private swarms
+
+Point the server at specific peers with `--peer` (repeatable) or `peers` in
+the config file:
+
+```sh
+deaddrop serve ./file.torrent --peer 192.168.1.10:6881 --peer 192.168.1.11:6881
+```

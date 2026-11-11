@@ -1,0 +1,77 @@
+---
+title: Notifications
+description: Push tickets to Discord or any webhook, and choose which notifiers get the key.
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+The server can send the ticket out when it's ready:
+
+```sh
+deaddrop serve x.torrent --notify discord=https://discord.com/api/webhooks/<id>/<token>
+deaddrop serve x.torrent --notify webhook=https://example.com/hooks/deaddrop
+```
+
+## Keep webhook URLs secret
+
+Webhook URLs usually contain a secret. To keep them out of shell history and
+`ps`, use the config file or an environment variable:
+
+<Tabs>
+<TabItem label="Config file">
+
+```toml
+[[serve.notify]]
+type = "discord"
+url = "https://discord.com/api/webhooks/<id>/<token>"
+
+[[serve.notify]]
+type = "webhook"
+url = "https://example.com/hooks/deaddrop"
+include_key = true
+```
+
+</TabItem>
+<TabItem label="Environment">
+
+```sh
+export DEADDROP_NOTIFY='discord=https://discord.com/api/webhooks/...,webhook=https://example.com/hook'
+deaddrop serve x.torrent
+```
+
+</TabItem>
+</Tabs>
+
+Sources aren't merged: `--notify` flags replace `DEADDROP_NOTIFY`, which
+replaces the config file's list.
+
+## Who gets the key
+
+By default a notifier gets the ticket but **not the decryption key**. Choose
+per notifier which ones get the key:
+
+- On the command line or in `DEADDROP_NOTIFY`, add `+key` to the type:
+  `webhook+key=https://...`
+- In the config file, set `include_key = true` in its `[[serve.notify]]` table.
+
+<Aside type="tip" title="Split the secrets">
+	Post the ticket to a Discord channel and send the key to a private webhook,
+	so a leaked channel alone isn't enough to read the data.
+</Aside>
+
+## Notifier types
+
+| Type | What it sends |
+| --- | --- |
+| `discord` | A channel message with the torrent name, size, mode and a copyable `deaddrop fetch …` command. Mentions are turned off and markdown in the name is escaped. With the key, it is shown as a spoiler, to be set as `DEADDROP_KEY`. |
+| `webhook` | `POST` with a JSON body. See the [webhook payload reference](/docs/reference/webhook/). |
+
+## Failure handling
+
+- Bad notifier settings are rejected **at startup**, before the torrent download begins.
+- If a notification fails (an error status, an unreachable host, or the
+  **15 s** timeout), the server logs a warning and keeps serving, since the
+  ticket is still printed locally.
+- Logs never include webhook URLs.
+
+Want Slack, Matrix or something else? See [Adding a notifier](/docs/project/adding-a-notifier/).

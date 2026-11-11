@@ -1,0 +1,61 @@
+---
+title: Encryption
+description: What deaddrop encrypts, with what, where the key lives, and what it doesn't hide.
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+The data is encrypted **before iroh ever sees it**, so its confidentiality
+doesn't depend on trusting iroh's transport or relays.
+
+<Steps>
+
+1. When the torrent finishes, each file is encrypted with
+   [age](https://age-encryption.org) to a **new X25519 key made for that
+   torrent**. Each plaintext file is deleted as soon as it is encrypted (so you
+   need about one extra file's worth of disk space), and the whole download
+   folder is deleted afterwards, also if encryption fails.
+
+2. Only the encrypted files go into the blob store and over iroh. Collection
+   entries are named `0`, `1`, ...; the real file names and the torrent name
+   are in an encrypted manifest, `deaddrop-manifest.age`.
+
+3. The key lives **only in the server's memory**. It is printed (stderr and
+   stdout) and sent to the notifiers that ask for it, never written to the
+   server's disk. Each reset gets a new key.
+
+4. `fetch` downloads the ciphertext, then decrypts each file into place. A
+   wrong key or tampered data fails (age authenticates every chunk), and no
+   partial file is left under the real name.
+
+</Steps>
+
+## Two layers of integrity
+
+| Layer | Checks | Catches |
+| --- | --- | --- |
+| iroh-blobs (BLAKE3) | Every received chunk against the collection's hash tree | Corruption or tampering in transit; a server that serves different bytes than the ticket names |
+| age (ChaCha20-Poly1305) | Every 64 KiB chunk of every file | A wrong key; ciphertext modified before it was hashed |
+
+## The ticket and the key
+
+|  | Ticket | Key |
+| --- | --- | --- |
+| Looks like | `blob...` | `AGE-SECRET-KEY-1...` |
+| Grants | Downloading the **ciphertext** | Reading it |
+| Goes to notifiers | Always | Only with `include_key` / `+key` |
+| Changes on reset | Yes | Yes |
+
+Treat both as secrets, and send them over **different channels** when you can.
+
+## What it doesn't hide
+
+<Aside type="caution">
+- **File sizes and file count**, and the fact that a transfer happened.
+- The plaintext **does exist on the server's disk** while the torrent
+  downloads, and deleting a file doesn't securely erase it (especially on SSDs).
+- If the server's **stderr goes to a persistent log** (systemd journal, a log
+  file), the key ends up there too.
+</Aside>
+
+See the full [threat model](/docs/concepts/threat-model/).
