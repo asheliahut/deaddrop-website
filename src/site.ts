@@ -5,6 +5,8 @@ export const ISSUES = `${GITHUB}/issues`;
 export const SECURITY_REPORT = `${GITHUB}/security/advisories/new`;
 export const SITE_REPO = 'https://github.com/asheliahut/deaddrop-website';
 /** Version shown in install snippets. Bump when a new release ships. */
-export const VERSION = 'v0.1.0';
+export const VERSION = 'v1.0.0';
+export const TAP = 'https://github.com/asheliahut/homebrew-tap';
+export const BREW_INSTALL = 'brew install asheliahut/tap/deaddrop';
 export const TAGLINE =
 	'Leech a torrent on a server. Encrypt it. Hand it to one client, peer to peer. Leave nothing behind.';

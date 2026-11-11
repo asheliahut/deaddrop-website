@@ -28,7 +28,8 @@ npm run preview    # serve ./dist
 | `scripts/og.svg` | Source for `public/og.png`: `node -e "require('sharp')('scripts/og.svg').png().toFile('public/og.png')"` |
 
 When deaddrop ships a new release, bump `VERSION` in `src/site.ts` and the
-`VERSION=` lines in `src/content/docs/docs/installation.mdx`.
+`VERSION=` lines in `src/content/docs/docs/installation.mdx`. (The Homebrew
+tap updates itself on every stable release, so its snippets need no bump.)
 
 ## Deploy
 

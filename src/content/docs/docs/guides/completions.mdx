@@ -3,10 +3,16 @@ title: Shell completions
 description: Install tab completion for bash, zsh, fish, PowerShell and elvish.
 ---
 
-import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
 
 `deaddrop completions <shell>` prints a completion script to stdout. Install
 it once, then open a new shell.
+
+<Aside type="tip" title="Installed with Homebrew?">
+	bash, zsh and fish completions are already set up and stay current with
+	`brew upgrade`, as long as your shell loads
+	[Homebrew's completions](https://docs.brew.sh/Shell-Completion).
+</Aside>
 
 <Tabs syncKey="shell">
 <TabItem label="bash">

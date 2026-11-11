@@ -1,9 +1,35 @@
 ---
 title: Installation
-description: Install deaddrop from a prebuilt binary or from source.
+description: Install deaddrop with Homebrew, from a prebuilt binary, or from source.
 ---
 
 import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+
+## Homebrew
+
+[Homebrew](https://brew.sh) (macOS and Linux, Intel + ARM) is the easiest way
+to install:
+
+```sh
+brew install asheliahut/tap/deaddrop
+```
+
+That one command adds the [`asheliahut/tap`](https://github.com/asheliahut/homebrew-tap)
+tap and installs the prebuilt release binary (the static musl build on Linux).
+You also get:
+
+- bash, zsh and fish [completions](/docs/guides/completions/), loaded
+  automatically, with no extra setup
+- the example config at `$(brew --prefix)/share/deaddrop/config.example.toml`
+- no Gatekeeper prompt on macOS. The release binaries aren't notarized, but
+  Homebrew doesn't quarantine what it installs.
+
+The tap updates on every stable release:
+
+```sh
+brew upgrade deaddrop                                  # update
+brew uninstall deaddrop && brew untap asheliahut/tap   # remove
+```
 
 ## Prebuilt binaries
 
@@ -25,7 +51,7 @@ and contain the binary, `README.md`, `config.example.toml` and `LICENSE`.
 <TabItem label="Linux">
 
 ```sh
-VERSION=v0.1.0
+VERSION=v1.0.0
 TARGET=x86_64-unknown-linux-musl   # static build; or aarch64-unknown-linux-musl, *-linux-gnu
 curl -LO "https://github.com/asheliahut/deaddrop/releases/download/$VERSION/deaddrop-$VERSION-$TARGET.tar.gz"
 tar -xzf "deaddrop-$VERSION-$TARGET.tar.gz"
@@ -36,7 +62,7 @@ sudo install "deaddrop-$VERSION-$TARGET/deaddrop" /usr/local/bin/
 <TabItem label="macOS">
 
 ```sh
-VERSION=v0.1.0
+VERSION=v1.0.0
 TARGET=aarch64-apple-darwin        # or x86_64-apple-darwin on Intel
 curl -LO "https://github.com/asheliahut/deaddrop/releases/download/$VERSION/deaddrop-$VERSION-$TARGET.tar.gz"
 tar -xzf "deaddrop-$VERSION-$TARGET.tar.gz"
@@ -47,7 +73,7 @@ sudo install "deaddrop-$VERSION-$TARGET/deaddrop" /usr/local/bin/
 <TabItem label="Windows">
 
 ```powershell
-$v = "v0.1.0"
+$v = "v1.0.0"
 $t = "x86_64-pc-windows-msvc"      # or aarch64-pc-windows-msvc
 Invoke-WebRequest "https://github.com/asheliahut/deaddrop/releases/download/$v/deaddrop-$v-$t.zip" -OutFile deaddrop.zip
 Expand-Archive deaddrop.zip -DestinationPath .
@@ -66,10 +92,27 @@ curl -LO "https://github.com/asheliahut/deaddrop/releases/download/$VERSION/SHA2
 sha256sum --check --ignore-missing SHA256SUMS     # macOS: shasum -a 256 -c --ignore-missing SHA256SUMS
 ```
 
+### Verify build provenance
+
+macOS and Linux tarballs carry signed
+[build provenance](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations)
+proving they were built by the deaddrop repo's release workflow. Verify one
+with the [GitHub CLI](https://cli.github.com):
+
+```sh
+gh attestation verify "deaddrop-$VERSION-$TARGET.tar.gz" --repo asheliahut/deaddrop
+```
+
+<Aside type="caution" title="macOS Gatekeeper">
+	A binary downloaded through a browser is quarantined, and Gatekeeper will
+	block it. Use Homebrew or `curl` (neither quarantines), or clear the flag:
+	`xattr -d com.apple.quarantine ./deaddrop`.
+</Aside>
+
 ## From source
 
-You need a recent stable [Rust toolchain](https://rustup.rs) (deaddrop uses the
-2024 edition):
+You need [Rust](https://rustup.rs) 1.95 or newer (deaddrop uses the 2024
+edition):
 
 ```sh
 cargo install --locked --git https://github.com/asheliahut/deaddrop

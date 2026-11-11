@@ -4,7 +4,7 @@ import '@fontsource-variable/jetbrains-mono';
 import Terminal from '../components/Terminal.astro';
 import Flow from '../components/Flow.astro';
 import logo from '../assets/logo.svg?raw';
-import { GITHUB, RELEASES, TAGLINE, VERSION } from '../site';
+import { BREW_INSTALL, GITHUB, RELEASES, TAGLINE, TAP, VERSION } from '../site';
 
 const title = 'deaddrop: leech, encrypt, hand off, vanish';
 const canonical = new URL('/', Astro.site).href;
@@ -28,6 +28,12 @@ const steps = [
 ];
 
 const install = [
+	{
+		id: 'homebrew',
+		label: 'Homebrew',
+		code: `# macOS and Linux, Intel + ARM
+${BREW_INSTALL}`,
+	},
 	{
 		id: 'linux',
 		label: 'Linux',
@@ -57,7 +63,7 @@ Expand-Archive deaddrop.zip -DestinationPath .`,
 	{
 		id: 'source',
 		label: 'From source',
-		code: `# needs a recent stable Rust toolchain
+		code: `# needs Rust 1.95+
 cargo install --locked --git ${GITHUB}`,
 	},
 ];
@@ -119,7 +125,7 @@ const builtOn = [
 				<div class="wrap hero-inner">
 					<p class="eyebrow">
 						<span class="pulse" aria-hidden="true"></span>
-						open source · public domain · written in rust
+						{VERSION} · open source · public domain · written in rust
 					</p>
 					<h1>
 						Leech it. Lock it.<br />
@@ -134,8 +140,8 @@ const builtOn = [
 						</a>
 					</div>
 					<div class="oneliner">
-						<code><span class="lime">$</span> cargo install --locked --git {GITHUB}</code>
-						<button type="button" class="copy" data-copy={`cargo install --locked --git ${GITHUB}`} aria-label="Copy install command">copy</button>
+						<code><span class="lime">$</span> {BREW_INSTALL}</code>
+						<button type="button" class="copy" data-copy={BREW_INSTALL} aria-label="Copy install command">copy</button>
 					</div>
 					<div class="hero-term">
 						<Terminal />
@@ -223,9 +229,10 @@ const builtOn = [
 			<section class="section alt" id="install">
 				<div class="wrap">
 					<p class="kicker">// install</p>
-					<h2>Grab a binary or build it.</h2>
+					<h2>Brew it, grab a binary, or build it.</h2>
 					<p class="section-lede">
-						Prebuilt binaries for Linux (gnu + musl, x86_64 + aarch64), macOS (Intel + Apple Silicon) and Windows (x86_64 +
+						On macOS and Linux, <a href={TAP}>Homebrew</a> is the easiest way: it installs the prebuilt binary with shell
+						completions set up. Prebuilt binaries for Linux (gnu + musl, x86_64 + aarch64), macOS (Intel + Apple Silicon) and Windows (x86_64 +
 						ARM) are attached to every <a href={RELEASES}>GitHub release</a>, with <code>SHA256SUMS</code>.
 					</p>
 					<div class="tabs" data-tabs>
@@ -356,9 +363,8 @@ const builtOn = [
 						next.focus();
 					});
 				});
-				// Default to the visitor's platform.
-				const ua = navigator.userAgent;
-				const guess = /Windows/.test(ua) ? 'windows' : /Mac OS X/.test(ua) && !/iPhone|iPad/.test(ua) ? 'macos' : /Linux/.test(ua) && !/Android/.test(ua) ? 'linux' : null;
+				// Homebrew is the default (macOS and Linux); Windows visitors get the zip.
+				const guess = /Windows/.test(navigator.userAgent) ? 'windows' : null;
 				const tab = guess && tabs.find((t) => t.id === `tab-${guess}`);
 				if (tab) select(tab);
 			}
