@@ -4,27 +4,30 @@ import '@fontsource-variable/jetbrains-mono';
 import Terminal from '../components/Terminal.astro';
 import Flow from '../components/Flow.astro';
 import logo from '../assets/logo.svg?raw';
-import { BREW_INSTALL, GITHUB, RELEASES, TAGLINE, TAP, VERSION } from '../site';
+import VersionBar from '../components/VersionBar.astro';
+import { BREW_INSTALL, CHANGELOG, GITHUB, RELEASES, TAGLINE, TAP, VERSION } from '../site';
 
-const title = 'deaddrop: leech, encrypt, hand off, vanish';
+const title = 'deaddrop: leech, hand off, vanish';
 const canonical = new URL('/', Astro.site).href;
 
 const features = [
 	{ icon: '🚫', title: 'Zero seeding', body: "Built on librqbit's <code>disable-upload</code>. No incoming BitTorrent listener, and the swarm session is torn down before serving starts." },
-	{ icon: '🔐', title: 'End-to-end encrypted', body: 'Every file is <a href="https://age-encryption.org">age</a>-encrypted with a fresh per-torrent key that never touches the server\'s disk. File names are hidden too.' },
-	{ icon: '🕳️', title: 'NAT-proof transfers', body: '<a href="https://iroh.computer">iroh</a> punches through NATs and falls back to relays, so neither side needs an open port.' },
-	{ icon: '✅', title: 'Verified delivery', body: 'Every chunk is checked against its BLAKE3 hash. Tampering or a wrong key fails loudly. No partial file is left under its real name.' },
+	{ icon: '🔐', title: 'End-to-end encrypted', body: '<a href="https://iroh.computer">iroh</a> connections are QUIC with TLS 1.3, relays included. Add <code>--encrypt</code> to also <a href="https://age-encryption.org">age</a>-encrypt every file and hide file names, with a key that never touches the server\'s disk.' },
+	{ icon: '🕳️', title: 'NAT-proof, path-aware', body: 'iroh punches through NATs and falls back to relays, so neither side needs an open port. Every connection says if it\'s direct or relayed. Use n0\'s relays, your own, or none.' },
+	{ icon: '✅', title: 'Verified delivery', body: 'Every chunk is checked against its BLAKE3 hash. Tampering (or a wrong key) fails loudly. No partial file is left under its real name.' },
 	{ icon: '💥', title: 'Single use by default', body: 'One client, one download, then the server shuts down, or wipes the data and waits for the next drop.' },
-	{ icon: '🔄', title: 'Hot swaps', body: 'Point a running server at a new torrent with <code>deaddrop reset</code>. The old ticket dies, and the new one gets a new key.' },
-	{ icon: '🔔', title: 'Notifications', body: 'Push tickets to Discord or any webhook, with per-notifier control over who also gets the key.' },
-	{ icon: '🧩', title: 'Script friendly', body: '<code>&lt;ticket&gt; &lt;key&gt;</code> on stdout, everything else on stderr. TOML config, env vars, shell completions.' },
+	{ icon: '🔄', title: 'Hot swaps', body: 'Point a running server at a new torrent with <code>deaddrop reset</code>. The old ticket dies.' },
+	{ icon: '🔔', title: 'Notifications', body: 'Push tickets to Discord or any webhook. With <code>--encrypt</code>, choose per notifier who also gets the key, or with <code>--hide-key</code>, who gets the only copy.' },
+	{ icon: '📊', title: 'Progress bars', body: 'For the torrent, each transfer on the server, and the client download, with an ETA. Plain lines for logs, pipes and <code>--no-progress</code>.' },
+	{ icon: '🧩', title: 'Script friendly', body: 'The ticket on stdout, everything else on stderr. TOML config, env vars, shell completions.' },
+	{ icon: '🤖', title: 'Agent ready', body: '<code>deaddrop skill install</code> teaches Claude Code, Codex, GitHub Copilot and other AI coding agents how to use and configure deaddrop.' },
 ];
 
 const steps = [
 	{ n: '01', verb: 'Leech', body: 'The server downloads the torrent with uploading disabled. Nothing is seeded, ever.' },
-	{ n: '02', verb: 'Seal', body: 'The swarm session stops. Each file is age-encrypted to a new key, and the plaintext is deleted.' },
-	{ n: '03', verb: 'Drop', body: 'A ticket and a key are printed. The client connects peer to peer over iroh and pulls the ciphertext.' },
-	{ n: '04', verb: 'Vanish', body: 'The client verifies and decrypts. The single-use server shuts down, or wipes the data and waits.' },
+	{ n: '02', verb: 'Stop', body: 'The swarm session is torn down. With --encrypt, each file is also age-encrypted to a new key and the plaintext is deleted.' },
+	{ n: '03', verb: 'Drop', body: 'A ticket is printed. The client connects peer to peer over end-to-end encrypted iroh, direct or relayed, and pulls the files.' },
+	{ n: '04', verb: 'Vanish', body: 'The client verifies every chunk. The single-use server shuts down, or wipes the data and waits.' },
 ];
 
 const install = [
@@ -72,7 +75,8 @@ const builtOn = [
 	{ name: 'iroh', href: 'https://iroh.computer', what: 'P2P QUIC transport' },
 	{ name: 'iroh-blobs', href: 'https://github.com/n0-computer/iroh-blobs', what: 'verified blob transfer' },
 	{ name: 'librqbit', href: 'https://github.com/ikatson/rqbit', what: 'BitTorrent engine' },
-	{ name: 'age', href: 'https://github.com/str4d/rage', what: 'file encryption' },
+	{ name: 'age', href: 'https://github.com/str4d/rage', what: 'optional file encryption' },
+	{ name: 'indicatif', href: 'https://github.com/console-rs/indicatif', what: 'progress bars' },
 	{ name: 'clap', href: 'https://github.com/clap-rs/clap', what: 'command line' },
 	{ name: 'tokio', href: 'https://tokio.rs', what: 'async runtime' },
 ];
@@ -99,6 +103,8 @@ const builtOn = [
 	</head>
 	<body>
 		<a class="skip" href="#main">Skip to content</a>
+
+		<VersionBar variant="landing" />
 
 		<header class="nav">
 			<div class="wrap nav-inner">
@@ -128,7 +134,7 @@ const builtOn = [
 						{VERSION} · open source · public domain · written in rust
 					</p>
 					<h1>
-						Leech it. Lock it.<br />
+						Leech it. Pass it.<br />
 						Drop it. <span class="strike">Leave a trace.</span><span class="lime">Leave nothing.</span>
 					</h1>
 					<p class="lede">{TAGLINE}</p>
@@ -155,9 +161,9 @@ const builtOn = [
 					<p class="kicker">// how it works</p>
 					<h2>A dead drop in two commands.</h2>
 					<p class="section-lede">
-						A server downloads a torrent <strong>without seeding it</strong>, encrypts the result, then hands the files to
-						one client over <a href="https://iroh.computer">iroh</a>: peer-to-peer QUIC with NAT traversal and relay
-						fallback.
+						A server downloads a torrent <strong>without seeding it</strong>, then hands the files to one client over
+						<a href="https://iroh.computer">iroh</a>: end-to-end encrypted peer-to-peer QUIC with NAT traversal and relay
+						fallback. Add <code>--encrypt</code> to age-encrypt them at rest too.
 					</p>
 					<div class="flow-wrap"><Flow /></div>
 					<ol class="steps">
@@ -197,16 +203,18 @@ const builtOn = [
 			<section class="section" id="encryption">
 				<div class="wrap split">
 					<div>
-						<p class="kicker">// what the wire sees</p>
+						<p class="kicker">// with --encrypt</p>
 						<h2>Even the names are redacted.</h2>
 						<p class="section-lede">
-							Only ciphertext goes into the blob store and over iroh. Collection entries are named <code>0</code>,
-							<code>1</code>, <code>2</code>… and the real file names live in an encrypted manifest. The key exists
-							only in the server's memory.
+							iroh always encrypts the connection. Add <code>--encrypt</code> and only ciphertext goes into the blob
+							store and over the wire. Collection entries are named <code>0</code>, <code>1</code>, <code>2</code>… and
+							the real file names live in an encrypted manifest. The key exists only in the server's memory, and with
+							<code>--hide-key</code> it never even reaches the server's terminal.
 						</p>
 						<p class="honest">
 							<strong>What it doesn't hide:</strong> file sizes, file count, and the fact that a transfer happened.
-							Plaintext exists on the server's disk while the torrent downloads.{' '}
+							Plaintext exists on the server's disk while the torrent downloads. Without <code>--encrypt</code>, the
+							ticket alone is enough to read the data.{' '}
 							<a href="/docs/concepts/threat-model/">Read the threat model →</a>
 						</p>
 					</div>
@@ -315,11 +323,13 @@ const builtOn = [
 						<a href="/docs/installation/">Installation</a>
 						<a href="/docs/reference/cli/">CLI reference</a>
 						<a href="/docs/concepts/encryption/">Encryption</a>
+						<a href="/docs/whats-new/">1.0 vs 2.0</a>
 					</div>
 					<div>
 						<h4>Project</h4>
 						<a href={GITHUB}>GitHub</a>
 						<a href={RELEASES}>Releases</a>
+						<a href={CHANGELOG}>Changelog</a>
 						<a href={`${GITHUB}/issues`}>Issues</a>
 						<a href="/docs/project/security/">Security</a>
 					</div>

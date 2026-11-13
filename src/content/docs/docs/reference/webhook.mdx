@@ -6,6 +6,8 @@ description: The JSON body the `webhook` notifier POSTs.
 import { Aside } from '@astrojs/starlight/components';
 
 The `webhook` notifier sends a `POST` with a JSON body when a ticket is ready.
+The example below is for a server with `--encrypt` and a notifier with
+`include_key`; otherwise there's no `key` field.
 
 ```json title="POST <your url>"
 {
@@ -31,7 +33,7 @@ The `webhook` notifier sends a `POST` with a JSON body when a ticket is ready.
 | `total_bytes` | number | Total size in bytes |
 | `single_use` | bool | `true` if the server shuts down (or waits for a reset) after one download |
 | `reset` | bool | `true` if this ticket replaces an earlier one after a reset. The old ticket no longer works. |
-| `key` | string | The decryption key. **Only present** for notifiers with `include_key = true` / `+key`. |
+| `key` | string | The decryption key. **Only present** when the server uses `--encrypt` and the notifier has `include_key = true` / `+key`. |
 
 ## Delivery
 
@@ -42,6 +44,7 @@ The `webhook` notifier sends a `POST` with a JSON body when a ticket is ready.
   query string may carry a token.
 
 <Aside type="tip">
-	Run a receiver that gets the key on a different host than the one that gets
-	the ticket, so one leak isn't enough to read the data.
+	With `--encrypt`, run a receiver that gets the key on a different host than
+	the one that gets the ticket, so one leak isn't enough to read the data.
+	Without `--encrypt`, the `ticket` field alone gives access to the data.
 </Aside>

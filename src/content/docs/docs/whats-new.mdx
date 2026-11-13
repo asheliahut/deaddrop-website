@@ -1,0 +1,202 @@
+---
+title: 1.0 vs 2.0
+description: Everything that changed between deaddrop 1.0 and 2.0, and how to upgrade.
+---
+
+import { Aside, Tabs, TabItem, Steps, LinkCard } from '@astrojs/starlight/components';
+
+deaddrop **2.0.0** shipped on 2026-11-13. The rest of this site describes 2.0.
+This page lists what's different from **1.0.0**, so you can upgrade or run the
+two side by side. Each comparison below opens on the 2.0 tab; switch to 1.0
+to see the old behaviour.
+
+<Aside type="caution" title="Breaking changes">
+	1. **age encryption is off by default.** Add `--encrypt` (or
+	   `serve.encrypt = true`) to keep 1.0's behaviour.
+	2. **stdout is `<ticket>` without encryption**, and `<ticket> <key>` with
+	   `--encrypt`.
+	3. **1.0 and 2.0 don't mix.** A 1.0 client can't download from a 2.0
+	   server, and a 2.0 client can't download from a 1.0 single-use server.
+	   Upgrade servers and clients together.
+</Aside>
+
+## At a glance
+
+| | 1.0 | 2.0 |
+| --- | --- | --- |
+| age encryption at rest | Always on | Opt-in: `--encrypt` / `serve.encrypt` |
+| Transport encryption (iroh, QUIC + TLS 1.3) | Always on | Always on |
+| `serve` stdout | `<ticket> <key>` | `<ticket>`, or `<ticket> <key>` with `--encrypt` |
+| Client needs a key | Always | Only for `--encrypt` data |
+| File names on the wire | Hidden in an encrypted manifest | Visible in the collection; hidden with `--encrypt` |
+| Keep the key off the server's output | Not possible | `--hide-key` / `serve.hide_key` |
+| Relays | n0's public relays only | `[relay]`: `default`, `custom` (your own) or `disabled` |
+| Connection path | Not shown | Printed per connection, and on every relay ↔ direct switch |
+| Progress | Plain lines | Progress bars on a terminal; plain lines otherwise or with `--no-progress` |
+| Log colors in files and pipes | Colored (escape codes) | Only on a terminal; honors `NO_COLOR`, `CLICOLOR`, `TERM=dumb` |
+| `fetch` shows total size and ETA | No | Yes, via a small size probe |
+| `fetch` of encrypted data without the key | Error | Keeps the download, finishes later with the key and no server |
+| AI agent skill | None | `deaddrop skill install` |
+| 1.0 client → 2.0 server | n/a | ❌ The 1.0 client stops early (see [compatibility](#client-and-server-compatibility)) |
+| 2.0 client → 1.0 single-use server | n/a | ❌ Refused (the probe counts as the download) |
+| 2.0 client → 1.0 multi-use server | n/a | ✅ Works |
+
+## Encryption is opt-in
+
+In 1.0, `serve` always age-encrypted every file, deleted the plaintext, hid
+the file names and printed a decryption key. In 2.0 it serves the files as
+they are. The connection is still end-to-end encrypted by iroh, so a relay or
+a network observer can't read the data, but **the ticket alone is now enough
+to download and read it**.
+
+<Tabs syncKey="deaddrop-version">
+<TabItem label="2.0 (current)">
+
+```sh
+# serve as-is; iroh encrypts the connection
+deaddrop serve 'magnet:?xt=urn:btih:...'
+# stdout:  <ticket>
+deaddrop fetch <ticket> -o ./downloads
+
+# opt in to age encryption at rest
+deaddrop serve --encrypt 'magnet:?xt=urn:btih:...'
+# stdout:  <ticket> AGE-SECRET-KEY-1...
+DEADDROP_KEY=AGE-SECRET-KEY-1... deaddrop fetch <ticket> -o ./downloads
+```
+
+</TabItem>
+<TabItem label="1.0">
+
+```sh
+# always encrypted
+deaddrop serve 'magnet:?xt=urn:btih:...'
+# stdout:  <ticket> AGE-SECRET-KEY-1...
+DEADDROP_KEY=AGE-SECRET-KEY-1... deaddrop fetch <ticket> -o ./downloads
+```
+
+</TabItem>
+</Tabs>
+
+To keep the 1.0 behaviour everywhere, put this in your
+[config file](/docs/guides/config/):
+
+```toml
+[serve]
+encrypt = true
+```
+
+See [Encrypting at rest](/docs/guides/encrypting/) for when it's worth it.
+
+## stdout format
+
+`serve` and `reset` still print one line per ticket on stdout, and everything
+else on stderr. What's on the line depends on encryption.
+
+<Tabs syncKey="deaddrop-version">
+<TabItem label="2.0 (current)">
+
+| Mode | stdout line |
+| --- | --- |
+| default | `<ticket>` |
+| `--encrypt` | `<ticket> <key>` |
+| `--encrypt --hide-key` | `<ticket>` |
+
+`read -r TICKET KEY` still works. `KEY` is just empty when there's no key to
+show.
+
+</TabItem>
+<TabItem label="1.0">
+
+| Mode | stdout line |
+| --- | --- |
+| always | `<ticket> <key>` |
+
+</TabItem>
+</Tabs>
+
+## Client and server compatibility
+
+Before downloading, a 2.0 client sends a small **size-probe** request so it
+can show a total and an ETA, and a 2.0 server answers it without counting it
+as the one download. The two versions don't understand each other's side of
+that exchange:
+
+- **1.0 client → 2.0 server:** the 1.0 client takes the server's size
+  information as the end of the download and stops before it has the files.
+- **2.0 client → 1.0 single-use server:** the 1.0 server doesn't know about
+  probes, so it counts the probe as the download and refuses the real one.
+
+| Client ↓ / Server → | 1.0 single use | 1.0 multi use | 2.0 (any mode) |
+| --- | --- | --- | --- |
+| **1.0** | ✅ | ✅ | ❌ |
+| **2.0** | ❌ | ✅ | ✅ |
+
+Upgrade servers and clients together.
+
+## New in 2.0
+
+- **`--encrypt` / `serve.encrypt`:** opt-in age encryption at rest, exactly as
+  1.0 did it: a new X25519 key per torrent, plaintext deleted, file names in
+  an encrypted manifest. [Encrypting at rest →](/docs/guides/encrypting/)
+- **`--hide-key` / `serve.hide_key`:** with `--encrypt`, the key is never
+  printed or sent back to `deaddrop reset`; only notifiers with `include_key`
+  get it. [Hiding the key →](/docs/guides/encrypting/#hide-the-key)
+- **`[relay]` config section:** use n0's public relays, only your own
+  (`iroh-relay`), or none. [Connections & relays →](/docs/guides/relays/)
+- **Connection path reporting:** every connection says whether it goes
+  through a relay or a direct path, and again when it switches.
+- **Progress bars** for the torrent, each client transfer on the server, and
+  the `fetch` download, with plain lines for logs and pipes.
+  [Progress & logging →](/docs/guides/progress/)
+- **`--no-progress` / `DEADDROP_NO_PROGRESS` / `progress = false`:** plain
+  progress lines even on a terminal.
+- **Resumable decryption:** if `fetch` gets encrypted data without a key, the
+  download stays in `.deaddrop-<hash>`. Run it again with the key and it
+  finishes without contacting the server, even after a single-use server has
+  shut down. [Fetching files →](/docs/guides/fetching/)
+- **`fetch` detects encryption itself.** A key passed for unencrypted data is
+  ignored with a note.
+- **`deaddrop skill`:** installs an [Agent Skill](https://agentskills.io) so
+  Claude Code, Codex, GitHub Copilot and others know how to use and configure
+  deaddrop. [Agent skill →](/docs/guides/agent-skill/)
+
+## Changed in 2.0
+
+- Notifiers get the key only when the data is encrypted, and only those with
+  `include_key`. Without `--encrypt` every notifier gets just the ticket.
+- Log lines have color codes only when stderr is a terminal. `NO_COLOR`,
+  `CLICOLOR=0`, `CLICOLOR_FORCE` and `TERM=dumb` are honored.
+- When stderr isn't a terminal, progress is a plain line every few seconds
+  plus a summary. The torrent progress line keeps its 1.0 format.
+- Release archives include `CHANGELOG.md`, and GitHub release notes come from
+  it.
+- New dependency: `indicatif` (progress bars).
+
+## Upgrading from 1.0
+
+<Steps>
+
+1. **Upgrade every machine.** `brew upgrade deaddrop`, or grab the
+   [2.0.0 binaries](/docs/installation/#prebuilt-binaries). Servers and clients
+   must move together: a 1.0 client can't fetch from a 2.0 server, and a 2.0
+   client can't fetch from a 1.0 single-use server.
+
+2. **Decide on encryption.** If you relied on the key (the ticket was posted
+   somewhere semi-public, or the server's disk isn't trusted), add
+   `encrypt = true` under `[serve]` or pass `--encrypt`.
+
+3. **Check your scripts.** Anything that requires a non-empty `KEY` from
+   `read -r TICKET KEY` needs `--encrypt`, or should handle an empty key.
+
+4. **Review notifiers.** Without `--encrypt`, the ticket is all anyone needs,
+   so only send it where you'd send the data itself.
+
+5. **Validate the config.** `deaddrop config check` now also shows
+   `serve.encrypt`, `serve.hide_key` and the relay setting.
+
+6. **Optional:** add `--hide-key`, a `[relay]` section, or
+   `deaddrop skill install`.
+
+</Steps>
+
+<LinkCard title="Full changelog" description="CHANGELOG.md in the deaddrop repository" href="https://github.com/asheliahut/deaddrop/blob/main/CHANGELOG.md" />

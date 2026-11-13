@@ -5,24 +5,39 @@ description: What deaddrop is, what it does, and when to reach for it.
 
 import { Card, CardGrid, LinkCard, Aside } from '@astrojs/starlight/components';
 
-**deaddrop** leeches a torrent on a server, encrypts it, hands it to one client
-peer to peer, and leaves nothing behind.
+**deaddrop** leeches a torrent on a server, hands it to one client over an
+encrypted peer-to-peer link, and leaves nothing behind.
 
-A server downloads a torrent **without seeding it**, encrypts the result with
-[age](https://age-encryption.org), then hands the files to a client over
-[iroh](https://iroh.computer): peer-to-peer QUIC with NAT traversal and relay
-fallback. Neither side needs an open port.
+A server downloads a torrent **without seeding it**, then hands the files to a
+client over [iroh](https://iroh.computer): end-to-end encrypted peer-to-peer
+QUIC with NAT traversal and relay fallback. Neither side needs an open port.
+With `--encrypt`, the files are also [age](https://age-encryption.org)-encrypted
+at rest.
 
 ```sh
 # on the server
 deaddrop serve 'magnet:?xt=urn:btih:...'
-# ...prints:  <ticket> AGE-SECRET-KEY-1...
+# ...prints:  <ticket>
 
 # on the client
-DEADDROP_KEY=AGE-SECRET-KEY-1... deaddrop fetch <ticket> -o ./downloads
+deaddrop fetch <ticket> -o ./downloads
 ```
 
 That's it. The server exits once the client has everything.
+
+Want the data encrypted at rest too, so the ticket alone isn't enough?
+
+```sh
+deaddrop serve --encrypt 'magnet:?xt=urn:btih:...'
+# ...prints:  <ticket> AGE-SECRET-KEY-1...
+
+DEADDROP_KEY=AGE-SECRET-KEY-1... deaddrop fetch <ticket> -o ./downloads
+```
+
+<Aside type="note" title="Coming from 1.0?">
+	In 2.0, age encryption is opt-in, and 1.0 and 2.0 clients and servers can't
+	be mixed. Upgrade both sides together. See [1.0 vs 2.0](/docs/whats-new/).
+</Aside>
 
 ## Why
 
@@ -30,8 +45,9 @@ That's it. The server exits once the client has everything.
   your laptop, without the box ever **uploading** to the swarm.
 - You don't want to open ports, set up SFTP, or leave a copy sitting on a
   server afterwards.
-- You want the bytes in transit, and on the server's disk at rest, to be
-  **ciphertext** that only the holder of the key can read.
+- You want the bytes in transit encrypted end to end, and, when it matters,
+  the bytes on the server's disk to be **ciphertext** that only the holder of
+  the key can read.
 
 ## Features
 
@@ -41,14 +57,16 @@ That's it. The server exits once the client has everything.
 		session is torn down before serving starts.
 	</Card>
 	<Card title="End-to-end encrypted" icon="seti:lock">
-		Every file is age-encrypted with a fresh per-torrent key that never touches
-		the server's disk. File names are hidden too.
+		iroh connections are QUIC with TLS 1.3, authenticated by the server's key
+		in the ticket, relays included. Add `--encrypt` to also age-encrypt every
+		file and hide file names.
 	</Card>
-	<Card title="NAT-proof" icon="rocket">
-		iroh punches through NATs and falls back to relays.
+	<Card title="NAT-proof, path-aware" icon="rocket">
+		iroh punches through NATs and falls back to relays. Every connection says
+		whether it's direct or relayed. Use n0's relays, your own, or none.
 	</Card>
 	<Card title="Verified delivery" icon="approve-check">
-		Every chunk is checked against its BLAKE3 hash. Tampering or a wrong key
+		Every chunk is checked against its BLAKE3 hash. Tampering (or a wrong key)
 		fails loudly.
 	</Card>
 	<Card title="Single use by default" icon="star">
@@ -58,6 +76,14 @@ That's it. The server exits once the client has everything.
 	<Card title="Hot swaps & notifications" icon="random">
 		`deaddrop reset` points a running server at a new torrent. Tickets can be
 		pushed to Discord or any webhook.
+	</Card>
+	<Card title="Progress bars" icon="bars">
+		For the torrent, each transfer on the server, and the client download,
+		with plain lines for logs, pipes and `--no-progress`.
+	</Card>
+	<Card title="Agent ready" icon="puzzle">
+		`deaddrop skill install` teaches Claude Code, Codex, GitHub Copilot and
+		other AI coding agents how to use and configure deaddrop.
 	</Card>
 </CardGrid>
 
@@ -69,5 +95,6 @@ That's it. The server exits once the client has everything.
 
 <LinkCard title="Quick start" description="Serve and fetch your first drop in two commands." href="/docs/quick-start/" />
 <LinkCard title="Installation" description="Homebrew, prebuilt binaries for Linux, macOS and Windows, or build from source." href="/docs/installation/" />
+<LinkCard title="1.0 vs 2.0" description="What changed in 2.0, and how to upgrade." href="/docs/whats-new/" />
 <LinkCard title="How it works" description="The architecture, the no-seeding guarantee and the encryption design." href="/docs/concepts/architecture/" />
 <LinkCard title="GitHub" description="Source code, issues and releases." href="https://github.com/asheliahut/deaddrop" />

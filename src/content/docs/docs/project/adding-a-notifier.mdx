@@ -69,10 +69,14 @@ impl Notifier for Webhook {
 ## Rules of thumb
 
 - **Never log the URL.** `label()` should only show something safe, like the host.
-- **Respect the key.** The event only carries `key` for notifiers with
-  `include_key`. Don't send it anywhere else.
+- **Respect the key.** The event only carries `key` when the server uses
+  `--encrypt` and the notifier has `include_key`. Don't send it anywhere else,
+  and render the event fine without it. With `--hide-key`, your notifier may
+  hold the only copy.
 - **Escape user content.** Torrent names are untrusted. The Discord notifier
   escapes markdown and turns mentions off.
+- **Print with `say!`.** Status lines go through the `say!` macro so they
+  print above progress bars without breaking them.
 
 ## New events
 

@@ -1,6 +1,6 @@
 ---
 title: Serving a torrent
-description: Run `deaddrop serve` to leech a torrent, encrypt it and serve it over iroh.
+description: Run `deaddrop serve` to leech a torrent and serve it over iroh, optionally age-encrypted.
 ---
 
 import { Aside, Steps } from '@astrojs/starlight/components';
@@ -10,6 +10,7 @@ deaddrop serve 'magnet:?xt=urn:btih:...'          # single use: exits after one 
 deaddrop serve https://example.com/x.torrent      # .torrent URLs and local .torrent paths work too
 deaddrop serve file.torrent --multi-use           # keep serving to any number of clients until Ctrl-C
 deaddrop serve file.torrent --wait-for-reset      # one download per torrent, then wait for the next (needs a reset token)
+deaddrop serve file.torrent --encrypt             # also age-encrypt the files; prints a decryption key
 ```
 
 ## What happens
@@ -18,19 +19,29 @@ deaddrop serve file.torrent --wait-for-reset      # one download per torrent, th
 
 1. The torrent is downloaded with uploading disabled and no incoming BitTorrent
    listener, so nothing is seeded. See [No seeding](/docs/concepts/no-seeding/).
+   On a terminal, a progress bar shows bytes, speed, ETA and peer count.
 2. When it finishes, the torrent session is shut down: DHT, trackers and peers.
-3. Each file is encrypted with a new [age](https://age-encryption.org) (X25519)
-   key and the plaintext is deleted. The encrypted files are added to an iroh
-   blob store (by reference, not copied) and served as one collection. File
-   names are only stored inside an encrypted manifest.
-4. A ticket and the decryption key are printed as one `<ticket> <key>` line on
-   stdout. The ticket is sent to any configured
-   [notifiers](/docs/guides/notifications/), and the key only to those that ask
-   for it. The key is never written to the server's disk.
+3. The files are added to an iroh blob store (by reference, not copied) and
+   served as one collection. iroh encrypts the connection end to end.
+4. The **ticket** is printed as one line on stdout and sent to any configured
+   [notifiers](/docs/guides/notifications/).
+5. Each client that connects gets a line saying whether it's on a
+   [relay or a direct path](/docs/guides/relays/), and its own progress bar,
+   named by its short id. A finished transfer becomes a summary like
+   `✔ sent 500.00 MiB in 6.3s (79.42 MiB/s) to b2319767b8`.
 
 </Steps>
 
-Give both to the client: `DEADDROP_KEY=<key> deaddrop fetch <ticket>`.
+Give the ticket to the client: `deaddrop fetch <ticket>`.
+
+### With `--encrypt`
+
+[`--encrypt`](/docs/guides/encrypting/) changes steps 3 and 4: each file is
+first encrypted with a new [age](https://age-encryption.org) (X25519) key and
+the plaintext is deleted, and file names are only stored inside an encrypted
+manifest. The ticket and the key are printed as one `<ticket> <key>` line, and
+the key is sent only to notifiers with `include_key`. It is never written to
+the server's disk. The client runs `DEADDROP_KEY=<key> deaddrop fetch <ticket>`.
 
 ## Sources
 
@@ -49,9 +60,12 @@ By default the server is **single use**:
   transfer completes), the server shuts down. With
   [`--wait-for-reset`](/docs/guides/wait-for-reset/) it deletes the data and waits instead.
 - If the client drops out before finishing, the next client can connect.
+- A client's small **size-probe** request (so `fetch` can show a total and an
+  ETA) is answered but never counts as the one download.
 
-`--multi-use` keeps serving to any number of clients until you press Ctrl-C.
-`--multi-use=false` forces single use even if the config file turns multi use on.
+`--multi-use` keeps serving to any number of clients until you press Ctrl-C,
+with one progress bar per transfer. `--multi-use=false` forces single use even
+if the config file turns multi use on.
 
 ## Options
 
@@ -63,20 +77,27 @@ By default the server is **single use**:
 | `--notify <TYPE=URL>` | Send the ticket somewhere when it's ready. Repeatable. See [Notifications](/docs/guides/notifications/). |
 | `--reset-token <TOKEN>` | Let `deaddrop reset` switch the server to a different torrent. Prefer `DEADDROP_RESET_TOKEN` or the config file. |
 | `--wait-for-reset` | Single use, needs a reset token: after the one download, delete the data and wait for a reset. |
-| `-c, --config <FILE>` | TOML [config file](/docs/guides/config/). |
+| `--encrypt` | Also age-encrypt the files before serving them, delete the plaintext, and print a decryption key. Off by default, since iroh already encrypts the connection. See [Encrypting at rest](/docs/guides/encrypting/). |
+| `--hide-key` | Only with `--encrypt`: never print the decryption key; send it only to notifiers with `include_key` (at least one is required). |
+| `-c, --config <FILE>` | TOML [config file](/docs/guides/config/). Works with every command. |
+| `--no-progress` | Plain progress lines instead of progress bars. Works with every command. See [Progress & logging](/docs/guides/progress/). |
 
 ## Disk space
 
-Each plaintext file is deleted as soon as it is encrypted, so you need about
-**one extra file's worth** of disk space on top of the torrent itself. The
-encrypted files are imported into the iroh blob store by reference, so disk
-usage isn't doubled again.
+Without `--encrypt`, the downloaded files are served from where they are and
+imported into the blob store by reference, so you need the torrent's size and
+little more.
+
+With `--encrypt`, each plaintext file is deleted as soon as it is encrypted, so
+you need about **one extra file's worth** of disk space on top of the torrent.
+The encrypted files are imported by reference too, so disk usage isn't doubled.
 
 <Aside type="caution">
-	The plaintext exists on the server's disk while the torrent downloads, and
-	deleting a file doesn't securely erase it, especially on SSDs. If the server's
-	stderr goes to a persistent log (systemd journal, a log file), the key ends up
-	there too. See the [threat model](/docs/concepts/threat-model/).
+	Without `--encrypt`, the plaintext stays on the server's disk while it is
+	served (it's deleted afterwards), and **anyone with the ticket can download
+	it**. Even with `--encrypt`, the plaintext exists while the torrent
+	downloads, and deleting a file doesn't securely erase it, especially on
+	SSDs. See the [threat model](/docs/concepts/threat-model/).
 </Aside>
 
 ## Private swarms

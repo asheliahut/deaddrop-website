@@ -12,7 +12,7 @@ export default defineConfig({
 		starlight({
 			title: 'deaddrop',
 			description:
-				'Leech a torrent on a server. Encrypt it. Hand it to one client, peer to peer. Leave nothing behind.',
+				'Leech a torrent on a server. Hand it to one client over an encrypted peer-to-peer link. Leave nothing behind.',
 			logo: { src: './src/assets/logo.svg', replacesTitle: false },
 			favicon: '/favicon.svg',
 			social: [{ icon: 'github', label: 'GitHub', href: GITHUB }],
@@ -20,6 +20,9 @@ export default defineConfig({
 				baseUrl: 'https://github.com/asheliahut/deaddrop-website/edit/main/',
 			},
 			lastUpdated: true,
+			// The version bar (current release + link to what changed since the
+			// previous major) sits in Starlight's Banner slot on every page.
+			components: { Banner: './src/components/VersionBar.astro' },
 			customCss: [
 				'@fontsource-variable/space-grotesk',
 				'@fontsource-variable/jetbrains-mono',
@@ -40,6 +43,7 @@ export default defineConfig({
 						{ label: 'Introduction', slug: 'docs' },
 						{ label: 'Quick start', slug: 'docs/quick-start' },
 						{ label: 'Installation', slug: 'docs/installation' },
+						{ label: '1.0 vs 2.0', slug: 'docs/whats-new', badge: { text: 'New', variant: 'success' } },
 					],
 				},
 				{
@@ -50,8 +54,12 @@ export default defineConfig({
 						{ label: 'Resetting a server', slug: 'docs/guides/resetting' },
 						{ label: 'Single use, long running', slug: 'docs/guides/wait-for-reset' },
 						{ label: 'Notifications', slug: 'docs/guides/notifications' },
+						{ label: 'Encrypting at rest', slug: 'docs/guides/encrypting' },
+						{ label: 'Connections & relays', slug: 'docs/guides/relays' },
 						{ label: 'Config file', slug: 'docs/guides/config' },
+						{ label: 'Progress & logging', slug: 'docs/guides/progress' },
 						{ label: 'Scripting & output', slug: 'docs/guides/scripting' },
+						{ label: 'Agent skill', slug: 'docs/guides/agent-skill' },
 						{ label: 'Shell completions', slug: 'docs/guides/completions' },
 					],
 				},
@@ -81,6 +89,7 @@ export default defineConfig({
 						{ label: 'Security policy', slug: 'docs/project/security' },
 						{ label: 'GitHub', link: GITHUB, attrs: { target: '_blank' } },
 						{ label: 'Releases', link: `${GITHUB}/releases`, attrs: { target: '_blank' } },
+						{ label: 'Changelog', link: `${GITHUB}/blob/main/CHANGELOG.md`, attrs: { target: '_blank' } },
 					],
 				},
 			],

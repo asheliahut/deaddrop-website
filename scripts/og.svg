@@ -10,6 +10,6 @@
   <text x="185" y="152" font-family="DejaVu Sans Mono, monospace" font-weight="700" font-size="54" fill="#f4f6f3">deaddrop</text>
   <text x="80" y="300" font-family="DejaVu Sans, sans-serif" font-weight="700" font-size="76" fill="#f4f6f3" letter-spacing="-2">Leech it. Lock it. Drop it.</text>
   <text x="80" y="390" font-family="DejaVu Sans, sans-serif" font-weight="700" font-size="76" fill="#a3e635" letter-spacing="-2">Leave nothing behind.</text>
-  <text x="80" y="480" font-family="DejaVu Sans, sans-serif" font-size="28" fill="#b9c0b6">Leech a torrent on a server. Encrypt it. Hand it to one client, peer to peer.</text>
+  <text x="80" y="480" font-family="DejaVu Sans, sans-serif" font-size="28" fill="#b9c0b6">Leech a torrent on a server. Hand it to one client, peer to peer.</text>
   <text x="80" y="560" font-family="DejaVu Sans Mono, monospace" font-size="26" fill="#828c7f">deaddrop.rip  ·  github.com/asheliahut/deaddrop</text>
 </svg>

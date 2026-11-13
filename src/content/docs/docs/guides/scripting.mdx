@@ -1,26 +1,55 @@
 ---
 title: Scripting & output
-description: stdout vs. stderr, capturing tickets, exit codes and logging.
+description: stdout vs. stderr, capturing tickets and keys, and exit codes.
 ---
+
+import { Aside } from '@astrojs/starlight/components';
 
 ## stdout is for tickets
 
-Each ticket goes to **stdout** as one `<ticket> <key>` line, and everything
-else (progress, status, warnings) goes to **stderr**. So this works:
+`serve` and `reset` print each ticket on **stdout** as one line, and
+everything else (progress, status, connection paths, warnings) goes to
+**stderr**:
+
+| Mode | stdout line |
+| --- | --- |
+| default | `<ticket>` |
+| `--encrypt` | `<ticket> <key>` |
+| `--encrypt --hide-key` | `<ticket>` |
+
+So this works in every mode:
 
 ```sh
 deaddrop serve x.torrent > tickets.txt &
 # ...later
-read -r TICKET KEY < tickets.txt
+read -r TICKET KEY < tickets.txt     # KEY is empty without --encrypt, or with --hide-key
 ```
 
-After a [reset](/docs/guides/resetting/), the server prints the new ticket and
-key as another line. `deaddrop reset` prints the same line, so you can capture
-it directly:
+After a [reset](/docs/guides/resetting/), the server prints the new ticket
+(and key) as another line. `deaddrop reset` prints the same line, so you can
+capture it directly:
 
 ```sh
 read -r TICKET KEY < <(deaddrop reset "$TICKET" 'magnet:?xt=...')
 ```
+
+`fetch` accepts an empty key, so passing it along unconditionally is fine:
+
+```sh
+DEADDROP_KEY="$KEY" deaddrop fetch "$TICKET" -o ./dl
+```
+
+<Aside type="note" title="Changed in 2.0">
+	1.0 always printed `<ticket> <key>`. Scripts that require a non-empty `KEY`
+	need `--encrypt` now. See [1.0 vs 2.0](/docs/whats-new/#stdout-format).
+</Aside>
+
+## Progress in scripts
+
+Progress bars are only drawn when stderr is a terminal, so `2> log.txt`,
+pipes and systemd already get plain progress lines with no escape codes. For
+a recorded terminal (`script`, tmux logging, CI pseudo-terminals) add
+`--no-progress`. See [Progress & logging](/docs/guides/progress/).
 
 ## Exit status
 
@@ -29,20 +58,6 @@ read -r TICKET KEY < <(deaddrop reset "$TICKET" 'magnet:?xt=...')
 | `0` | Success, including a single-use server shutting down after its download, and Ctrl-C. |
 | `1` | Error. |
 | `2` | Bad command-line usage. |
-
-## Logging
-
-Release builds (`cargo build --release`) log nothing by default. Debug builds
-log warnings. Set `RUST_LOG` or `log` in the [config file](/docs/guides/config/)
-to change that, or `off` to turn logging off in any build:
-
-```sh
-RUST_LOG=info deaddrop serve x.torrent
-RUST_LOG=deaddrop=debug,librqbit=info deaddrop serve x.torrent
-```
-
-This only covers the log output from deaddrop and its libraries. The status
-lines (progress, the ticket, reset messages) are always printed to stderr.
 
 ## Help
 

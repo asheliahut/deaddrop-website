@@ -5,16 +5,42 @@ description: What deaddrop encrypts, with what, where the key lives, and what it
 
 import { Aside, Steps } from '@astrojs/starlight/components';
 
-The data is encrypted **before iroh ever sees it**, so its confidentiality
-doesn't depend on trusting iroh's transport or relays.
+deaddrop has two layers of encryption. The first is always on; the second is
+opt-in with `--encrypt`.
+
+| Layer | When | Protects against |
+| --- | --- | --- |
+| **In transit:** iroh (QUIC, TLS 1.3) | Always | Relays and network observers reading or altering the data |
+| **At rest:** [age](https://age-encryption.org) (X25519, ChaCha20-Poly1305) | With `--encrypt` / `serve.encrypt` | Someone with only the ticket; plaintext sitting on the server's disk while it's served; file names leaking |
+
+<Aside type="note" title="Changed in 2.0">
+	In 1.0, age encryption was always on. 2.0 makes it opt-in. See
+	[1.0 vs 2.0](/docs/whats-new/#encryption-is-opt-in).
+</Aside>
+
+## In transit, always
+
+iroh connections are QUIC with TLS 1.3, end to end between client and server.
+The ticket holds the server's public key, so the client knows it's talking to
+the right server, and [relays](/docs/guides/relays/) only ever forward
+encrypted packets. Every chunk is also checked against its BLAKE3 hash.
+
+Without `--encrypt`, the downloaded files sit on the server's disk as they are
+while they're served (deleted afterwards), their names are in the collection,
+and **anyone with the ticket can download and read them**.
+
+## At rest, with `--encrypt`
+
+`--encrypt` adds a layer of age encryption, so the data doesn't depend on
+keeping the ticket secret or on the server's disk:
 
 <Steps>
 
-1. When the torrent finishes, each file is encrypted with
-   [age](https://age-encryption.org) to a **new X25519 key made for that
-   torrent**. Each plaintext file is deleted as soon as it is encrypted (so you
-   need about one extra file's worth of disk space), and the whole download
-   folder is deleted afterwards, also if encryption fails.
+1. When the torrent finishes, each file is encrypted with age to a **new
+   X25519 key made for that torrent**. Each plaintext file is deleted as soon
+   as it is encrypted (so you need about one extra file's worth of disk
+   space), and the whole download folder is deleted afterwards, also if
+   encryption fails.
 
 2. Only the encrypted files go into the blob store and over iroh. Collection
    entries are named `0`, `1`, ...; the real file names and the torrent name
@@ -22,11 +48,14 @@ doesn't depend on trusting iroh's transport or relays.
 
 3. The key lives **only in the server's memory**. It is printed (stderr and
    stdout) and sent to the notifiers that ask for it, never written to the
-   server's disk. Each reset gets a new key.
+   server's disk. Each reset gets a new key. With `--hide-key` it is not
+   printed at all, and not sent back to `deaddrop reset` either: the notifiers
+   with `include_key` get the only copies.
 
-4. `fetch` downloads the ciphertext, then decrypts each file into place. A
-   wrong key or tampered data fails (age authenticates every chunk), and no
-   partial file is left under the real name.
+4. `fetch` detects the encryption, downloads the ciphertext, then decrypts each
+   file into place. A wrong key or tampered data fails (age authenticates
+   every chunk), and no partial file is left under the real name. Without a
+   key, the ciphertext is kept so a later run with the key can finish offline.
 
 </Steps>
 
@@ -35,14 +64,15 @@ doesn't depend on trusting iroh's transport or relays.
 | Layer | Checks | Catches |
 | --- | --- | --- |
 | iroh-blobs (BLAKE3) | Every received chunk against the collection's hash tree | Corruption or tampering in transit; a server that serves different bytes than the ticket names |
-| age (ChaCha20-Poly1305) | Every 64 KiB chunk of every file | A wrong key; ciphertext modified before it was hashed |
+| age (ChaCha20-Poly1305), with `--encrypt` | Every 64 KiB chunk of every file | A wrong key; ciphertext modified before it was hashed |
 
 ## The ticket and the key
 
-|  | Ticket | Key |
+|  | Ticket | Key (with `--encrypt`) |
 | --- | --- | --- |
 | Looks like | `blob...` | `AGE-SECRET-KEY-1...` |
-| Grants | Downloading the **ciphertext** | Reading it |
+| Grants | Downloading the data (and, without `--encrypt`, reading it) | Reading it |
+| Printed by `serve` | Always | Unless `--hide-key` |
 | Goes to notifiers | Always | Only with `include_key` / `+key` |
 | Changes on reset | Yes | Yes |
 
@@ -55,7 +85,8 @@ Treat both as secrets, and send them over **different channels** when you can.
 - The plaintext **does exist on the server's disk** while the torrent
   downloads, and deleting a file doesn't securely erase it (especially on SSDs).
 - If the server's **stderr goes to a persistent log** (systemd journal, a log
-  file), the key ends up there too.
+  file), the key ends up there too, unless you use `--hide-key`.
 </Aside>
 
-See the full [threat model](/docs/concepts/threat-model/).
+How to use it: [Encrypting at rest](/docs/guides/encrypting/). See also the
+full [threat model](/docs/concepts/threat-model/).

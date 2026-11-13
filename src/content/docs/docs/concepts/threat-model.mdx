@@ -10,57 +10,76 @@ import { Aside } from '@astrojs/starlight/components';
 | Party | Sees | Doesn't see |
 | --- | --- | --- |
 | **BitTorrent swarm, trackers, DHT** | The server's IP address and that it downloaded the torrent | Anything from the server: it never uploads |
-| **iroh relays / network observers** | That two endpoints talked, and roughly how much data moved | Plaintext, file names, the torrent name, the key |
-| **Someone with the ticket only** | The ciphertext, file sizes and file count | Contents, file names, torrent name |
-| **Someone with the ticket and the key** | Everything | — |
+| **iroh relays, address lookup, network observers** | Which endpoints talked, their IP addresses, and roughly how much data moved | The data, file names, the torrent name, the key: relays only forward end-to-end encrypted packets |
+| **Someone with the ticket** (default) | Everything: contents, file names, sizes | — |
+| **Someone with the ticket** (`--encrypt`) | The ciphertext, file sizes and file count | Contents, file names, torrent name |
+| **Someone with the ticket and the key** (`--encrypt`) | Everything | — |
 | **Someone with the ticket and the reset token** | Can switch the server to another torrent | The key for the current torrent |
-| **A notifier without `include_key`** | The ticket, torrent name, size, file count | The key |
-| **Someone with root on the server during the download** | Plaintext on disk | — |
+| **A notifier without `include_key`** | The ticket, torrent name, size, file count. Without `--encrypt` the ticket alone gives access. | The key |
+| **Someone with root on the server** | Plaintext on disk during the download, and while it's served without `--encrypt`. With `--encrypt` and no `--hide-key`, the key in the server's output. | — |
 
 ## Promises
 
 These are things deaddrop promises. Breaking one is a
 [security bug](/docs/project/security/):
 
-- **Confidentiality:** no plaintext file contents, file names or torrent name
-  without the key. The key is never written to the server's disk or sent to a
-  notifier without `include_key`.
+- **Confidentiality:** a party without the ticket (a relay, a network
+  observer) can't read the data. With `--encrypt`: no plaintext file
+  contents, file names or torrent name without the key; the key is never
+  written to the server's disk or sent to a notifier without `include_key`;
+  and with `--hide-key` it never shows up in any output or reset reply.
 - **Integrity:** `fetch` never accepts tampered or wrong-key data and never
   writes a partial file under its real name.
 - **Client file system:** a malicious server can't make `fetch` write outside
   the output directory.
 - **No seeding:** no torrent piece data is uploaded and no incoming BitTorrent
   connections are accepted.
-- **Single use:** a second client can't download from a single-use server, and
-  an old ticket stops serving data after a reset.
+- **Single use:** a second client can't download from a single-use server, a
+  size probe is never counted as the one download, and an old ticket stops
+  serving data after a reset.
 - **Reset protocol:** no reset without the right token, and a reset source is
   never read as a path on the server's disk.
 - **Secrets in output:** webhook URLs and reset tokens don't show up in logs,
   `deaddrop config check` or error messages.
+- **`deaddrop skill`:** never writes outside the chosen skills directory, and
+  never replaces or removes files it didn't write without `--force`.
 
 ## Known limits
 
 <Aside type="caution">
 These are by design and out of scope for security reports:
 
+- Without `--encrypt` (the default), anyone holding the ticket can download
+  and read the data, and it's stored on the server's disk as plaintext while
+  it's served.
 - File sizes, file count, and the fact that a transfer happened are not hidden.
 - Plaintext exists on the server's disk while the torrent downloads, and
   deletion is not secure erasure (especially on SSDs).
-- The key appears on the server's stderr/stdout, so a persistent log of that
-  output contains it.
-- Anyone holding the ticket can download the ciphertext; anyone holding both
-  the ticket and the key can read it.
+- With `--encrypt` (and without `--hide-key`), the key appears on the
+  server's stderr/stdout, so a persistent log of that output contains it.
+- With `--encrypt`, anyone holding the ticket can download the ciphertext;
+  anyone holding both the ticket and the key can read it.
 - The BitTorrent swarm, trackers and DHT can see the server's IP address while
   it leeches.
+- Relay servers (n0's public ones by default) and the address lookup service
+  see which endpoints connect and their IP addresses, but never the data.
+- What an AI agent does with the instructions in the `deaddrop` skill.
 </Aside>
 
 ## Hardening tips
 
-- Send the ticket and the key over **different channels**.
+- Treat the ticket as a secret: without `--encrypt` it is all anyone needs.
+- Use [`--encrypt`](/docs/guides/encrypting/) when the server's disk or the
+  channel the ticket travels over isn't trusted, and send the ticket and the
+  key over **different channels**.
+- With `--encrypt`, add [`--hide-key`](/docs/guides/encrypting/#hide-the-key)
+  to keep the key out of the server's terminal, logs and stdout entirely.
 - Prefer the config file (`chmod 600`) or environment variables over
   command-line flags for webhook URLs, reset tokens and the key, to keep them
   out of shell history and `ps`.
 - Use a long random reset token, e.g. `openssl rand -hex 32`.
 - Only give `include_key` to notifiers you trust with the data.
-- Don't send the server's stderr to a persistent log, or treat that log as a secret.
-- Verify release downloads against `SHA256SUMS`.
+- Run your own [iroh relay](/docs/guides/relays/) if connection metadata
+  shouldn't go through n0's public relays.
+- Verify release downloads against `SHA256SUMS`, and keep up to date
+  (`brew upgrade deaddrop`).

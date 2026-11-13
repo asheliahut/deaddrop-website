@@ -15,6 +15,7 @@ deaddrop [OPTIONS] <COMMAND>
 | [`fetch`](#deaddrop-fetch) | Download the files a deaddrop server is serving |
 | [`reset`](#deaddrop-reset) | Make a server serve a different torrent |
 | [`config`](#deaddrop-config) | Show, create or check the config file |
+| [`skill`](#deaddrop-skill) | Install an agent skill so AI coding agents know how to use deaddrop |
 | [`completions`](#deaddrop-completions) | Print a shell completion script |
 | `help` | Print help for a command |
 
@@ -23,6 +24,7 @@ deaddrop [OPTIONS] <COMMAND>
 | Option | Env | Meaning |
 | --- | --- | --- |
 | `-c, --config <FILE>` | `DEADDROP_CONFIG` | TOML config file. Default: the platform config file, if it exists. Works with every command. |
+| `--no-progress[=BOOL]` | `DEADDROP_NO_PROGRESS` | Plain progress lines instead of progress bars. Config: `progress = false`. `--no-progress=false` turns bars back on. Works with every command. |
 | `-h, --help` | | Short help. `--help` gives the full reference with examples. |
 | `-V, --version` | | Print the version. |
 
@@ -42,9 +44,11 @@ deaddrop serve [OPTIONS] <SOURCE>
 | `--multi-use[=BOOL]` | | `serve.multi_use` | Keep serving to any number of clients until Ctrl-C. `--multi-use=false` forces single use. |
 | `--data-dir <DIR>` | | `serve.data_dir` | Keep torrent data and the blob store here. Default: a temp dir deleted on exit. |
 | `--peer <IP:PORT>` | | `serve.peers` | Extra BitTorrent peer. Repeatable. |
-| `--notify <TYPE=URL>` | `DEADDROP_NOTIFY` | `serve.notify` | Send the ticket to `discord=<URL>` or `webhook=<URL>`. Add `+key` to also send the key. Repeatable; env is comma-separated. |
+| `--notify <TYPE=URL>` | `DEADDROP_NOTIFY` | `serve.notify` | Send the ticket to `discord=<URL>` or `webhook=<URL>`. With `--encrypt`, add `+key` to also send the key. Repeatable; env is comma-separated. |
 | `--reset-token <TOKEN>` | `DEADDROP_RESET_TOKEN` | `serve.reset_token` | Enable `deaddrop reset`. At least 16 characters. |
 | `--wait-for-reset[=BOOL]` | | `serve.wait_for_reset` | Single use: after the download, delete the data and wait for a reset. Needs a reset token. Ignored with `--multi-use`. |
+| `--encrypt[=BOOL]` | | `serve.encrypt` | Also age-encrypt the files, delete the plaintext, hide file names, and print a decryption key. Off by default. |
+| `--hide-key[=BOOL]` | | `serve.hide_key` | With `--encrypt`: never print the key or send it back to `reset`; only notifiers with `include_key` get it (at least one required). Ignored without `--encrypt`. |
 
 ```sh
 deaddrop serve 'magnet:?xt=urn:btih:...'
@@ -53,7 +57,9 @@ deaddrop serve ./file.torrent --data-dir /srv/deaddrop
 deaddrop serve ./file.torrent --notify discord=https://discord.com/api/webhooks/<id>/<token>
 DEADDROP_RESET_TOKEN=$(openssl rand -hex 32) deaddrop serve ./file.torrent --multi-use
 DEADDROP_RESET_TOKEN=$(openssl rand -hex 32) deaddrop serve ./file.torrent --wait-for-reset
-deaddrop serve ./file.torrent > tickets.txt   # one `<ticket> <key>` line per ticket
+deaddrop serve ./file.torrent > tickets.txt             # one `<ticket>` line per ticket
+deaddrop serve ./file.torrent --encrypt > tickets.txt   # one `<ticket> <key>` line per ticket
+deaddrop serve ./file.torrent --encrypt --hide-key --notify webhook+key=https://...
 ```
 
 Guide: [Serving a torrent](/docs/guides/serving/).
@@ -62,7 +68,9 @@ Guide: [Serving a torrent](/docs/guides/serving/).
 
 ## `deaddrop fetch`
 
-Download the data that a deaddrop server is serving, verify it and decrypt it.
+Download the data that a deaddrop server is serving and verify it. If the
+server used `--encrypt`, decrypt it with the key; without the key, the
+download is kept so a later run with the key finishes offline.
 
 ```txt
 deaddrop fetch [OPTIONS] <TICKET>
@@ -72,13 +80,19 @@ deaddrop fetch [OPTIONS] <TICKET>
 | --- | --- | --- | --- |
 | `<TICKET>` | | | The ticket printed by `deaddrop serve` (starts with `blob`) |
 | `-o, --out <DIR>` | | `fetch.out` | Directory to write the files into. Default: `.` |
-| `--key <KEY>` | `DEADDROP_KEY` | | The decryption key (`AGE-SECRET-KEY-1...`). Prefer the env var. |
+| `--key <KEY>` | `DEADDROP_KEY` | | The decryption key printed by `serve --encrypt` (`AGE-SECRET-KEY-1...`). Only needed if the server encrypts. Prefer the env var. |
 
 ```sh
-export DEADDROP_KEY=AGE-SECRET-KEY-1...
-deaddrop fetch blobaa...            # write files into the current directory
-deaddrop fetch blobaa... -o ~/dl    # write files into ~/dl
+deaddrop fetch blobaa...                  # write files into the current directory
+deaddrop fetch blobaa... -o ~/dl          # write files into ~/dl
+export DEADDROP_KEY=AGE-SECRET-KEY-1...   # for data served with --encrypt
+deaddrop fetch blobaa...
 ```
+
+<Aside type="caution">
+	`fetch` needs a 2.0 server: it sends a size probe first, which a 1.0
+	single-use server counts as the download.
+</Aside>
 
 Guide: [Fetching files](/docs/guides/fetching/).
 
@@ -98,6 +112,9 @@ deaddrop reset [OPTIONS] <TICKET> <SOURCE>
 | `<SOURCE>` | | | Magnet URI, http(s) URL of a `.torrent` (fetched by the server), or a local `.torrent` (its contents are sent) |
 | `--token <TOKEN>` | `DEADDROP_RESET_TOKEN` | `reset.token` | The server's reset token |
 | `--no-wait` | | | Return once the server accepts the request, without waiting for the new ticket |
+
+By default it waits and prints the new ticket on stdout: `<ticket>`, or
+`<ticket> <key>` if the server uses `--encrypt` without `--hide-key`.
 
 ```sh
 export DEADDROP_RESET_TOKEN=<token>
@@ -128,6 +145,32 @@ Guide: [Config file](/docs/guides/config/).
 
 ---
 
+## `deaddrop skill`
+
+Install an [Agent Skill](https://agentskills.io) that teaches AI coding agents
+how to use deaddrop.
+
+| Subcommand | Options | Meaning |
+| --- | --- | --- |
+| `skill install` | `--global` or `--project`, `--dir <DIR>`, `--harness <LIST>` or `--all`, `--force` | Install or update the skill |
+| `skill uninstall` | same as `install` | Remove the skill |
+| `skill status` | `--dir <DIR>` | Where it's installed, for every agent and both scopes |
+| `skill show` | | Print `SKILL.md` |
+
+`--harness` takes `claude`, `codex`, `copilot`, `agents` (comma-separated or
+repeated). Without a scope or agents, deaddrop asks on a terminal and fails
+otherwise.
+
+```sh
+deaddrop skill install --global --harness claude,codex
+deaddrop skill install --project --all
+deaddrop skill status
+```
+
+Guide: [Agent skill](/docs/guides/agent-skill/).
+
+---
+
 ## `deaddrop completions`
 
 Print a shell completion script to stdout.
@@ -144,8 +187,10 @@ Guide: [Shell completions](/docs/guides/completions/).
 
 ## Output and exit status
 
-`serve` and `reset` print one `<ticket> <key>` line on **stdout** per ticket,
-and everything else on **stderr**.
+`serve` and `reset` print one line on **stdout** per ticket, `<ticket>` or,
+with `--encrypt`, `<ticket> <key>`, and everything else on **stderr**. On a
+terminal, progress bars are drawn on stderr; otherwise (or with
+`--no-progress`, or `TERM=dumb`) progress is a plain line every few seconds.
 
 | Exit code | Meaning |
 | --- | --- |

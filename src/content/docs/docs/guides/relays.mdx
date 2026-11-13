@@ -1,0 +1,92 @@
+---
+title: Connections & relays
+description: See whether a transfer goes direct or through a relay, and choose n0's relays, your own, or none.
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+iroh first reaches the other side through a **relay** server and any
+addresses in the ticket, then tries to **hole-punch a direct UDP path** and
+moves the traffic there if that works. Neither side needs an open port.
+
+## Connection paths
+
+`serve`, `fetch` and `reset` print which path each connection uses, and print
+again when it switches between the relay and a direct path:
+
+```txt
+connection to e86045b272 using the relay https://use1-1.relay.n0.iroh.link./
+connection to e86045b272 switched to a direct path (203.0.113.7:50687)
+```
+
+The id is the other side's short endpoint id, the same one that names its
+progress bar on the server. Moves between direct addresses (for example, two
+local interfaces) aren't reported.
+
+If the relay line is the last one you see, no direct path could be made: for
+example both sides are behind symmetric NATs, or UDP is blocked. The data is
+still end-to-end encrypted, but n0's public relays are rate limited, so large
+transfers will be slow.
+
+## Choosing relays
+
+The `[relay]` section of the [config file](/docs/guides/config/) applies to
+`serve`, `fetch` and `reset`:
+
+<Tabs>
+<TabItem label="default">
+
+```toml
+[relay]
+mode = "default"    # n0's public relays (also what you get with no [relay] section)
+```
+
+</TabItem>
+<TabItem label="custom">
+
+```toml
+[relay]
+urls = ["https://relay.example.com"]   # setting urls implies mode = "custom"
+```
+
+Only your relays, for example your own
+[`iroh-relay`](https://crates.io/crates/iroh-relay) server.
+
+</TabItem>
+<TabItem label="disabled">
+
+```toml
+[relay]
+mode = "disabled"   # no relays at all
+```
+
+A transfer only works if the two sides can reach each other directly or by
+hole punching.
+
+</TabItem>
+</Tabs>
+
+| `mode` | `urls` | Result |
+| --- | --- | --- |
+| unset | empty | n0's public relays |
+| unset | set | Only your relays (`custom`) |
+| `"default"` | empty | n0's public relays |
+| `"custom"` | set | Only your relays |
+| `"custom"` | empty | **Error** at startup |
+| `"default"` / `"disabled"` | set | **Error** at startup |
+| `"disabled"` | empty | No relays |
+
+`deaddrop config check` shows the relay setting.
+
+## Both sides
+
+The ticket carries the server's relay URL and its direct addresses. If you
+use your own relays, give the server and the client the same `urls`. With
+relays disabled on the server, the ticket has only direct addresses.
+
+<Aside type="tip" title="Privacy">
+	Relays (and iroh's address lookup service) see which endpoints connect and
+	their IP addresses, but never the data: they only forward end-to-end
+	encrypted packets. Run your own relay if that metadata shouldn't go
+	through n0's public ones.
+</Aside>

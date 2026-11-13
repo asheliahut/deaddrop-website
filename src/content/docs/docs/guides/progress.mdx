@@ -1,0 +1,76 @@
+---
+title: Progress & logging
+description: Progress bars on a terminal, plain lines for logs and pipes, colors, and log levels.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+## Progress bars
+
+On a terminal, deaddrop draws progress bars on **stderr**:
+
+- **`serve`:** one for the torrent download (a spinner while the metadata
+  resolves, then bytes, speed, ETA and peer count), then **one per client
+  transfer**, named by the client's short id. With `--multi-use`, several run
+  at once.
+- **`fetch`:** one for the download, with the total size and an ETA. The
+  total comes from a small size probe sent to the server first.
+
+Finished bars become one-line summaries:
+
+```txt
+✔ sent 500.00 MiB in 6.3s (79.42 MiB/s) to b2319767b8
+```
+
+Status lines (client connected, notifications, [connection paths](/docs/guides/relays/))
+print above the bars without breaking them. stdout only ever carries tickets,
+so bars never get in the way of [scripts](/docs/guides/scripting/).
+
+## Plain progress lines
+
+When stderr **isn't a terminal** (a log file, systemd, a pipe), there are no
+bars, just a plain progress line every few seconds and a summary at the end,
+with no escape codes. The torrent progress line keeps its 1.0 format.
+
+You get the same plain lines on a terminal with any of:
+
+| Setting | Where |
+| --- | --- |
+| `--no-progress` | Any command. `--no-progress=false` turns bars back on. |
+| `DEADDROP_NO_PROGRESS=true` | Environment |
+| `progress = false` | Top level of the [config file](/docs/reference/config/#top-level) |
+| `TERM=dumb` | Environment. Also turns off colors. |
+
+Use it when a terminal session is recorded anyway: `script`, tmux or screen
+logging, or a CI runner that gives jobs a pseudo-terminal.
+
+## Colors
+
+| Variable | Effect |
+| --- | --- |
+| `NO_COLOR` (any value) or `CLICOLOR=0` | No colors in progress bars or log lines |
+| `CLICOLOR_FORCE=1` | Force colors on |
+| `TERM=dumb` | No colors, and no bars |
+
+Log lines are only colored when stderr is a terminal, so log files never get
+escape codes.
+
+## Logging
+
+Release builds (`cargo build --release`) log nothing by default. Debug builds
+log warnings. Set `RUST_LOG` or `log` in the [config file](/docs/guides/config/)
+to change that, or `off` to turn logging off in any build:
+
+```sh
+RUST_LOG=info deaddrop serve x.torrent
+RUST_LOG=deaddrop=debug,librqbit=info deaddrop serve x.torrent
+```
+
+This only covers the log output from deaddrop and its libraries. The status
+lines (progress, the ticket, reset messages) are always printed to stderr.
+
+<Aside type="caution">
+	With `--encrypt` (and without [`--hide-key`](/docs/guides/encrypting/#hide-the-key)),
+	the decryption key is printed on stderr. If stderr goes to a persistent log,
+	the key ends up there too.
+</Aside>

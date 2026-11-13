@@ -26,15 +26,21 @@ deaddrop reset <ticket> 'magnet:?xt=urn:btih:...'   # or an http(s) .torrent URL
 - **No downtime:** the server keeps serving the current torrent while the new
   one downloads. If the download fails, nothing changes and `reset` reports
   the error.
-- **New ticket, new key:** once the new torrent is ready, the server prints
-  the new ticket and its new decryption key (another line on stdout), sends
-  them to the notifiers with `"reset": true`, and `deaddrop reset` prints them
-  too.
+- **New ticket:** once the new torrent is ready, the server prints the new
+  ticket as another line on stdout, sends it to the notifiers with
+  `"reset": true`, and `deaddrop reset` prints it too.
+- **New key, with `--encrypt`:** each torrent gets its own decryption key,
+  printed next to the ticket. A server with
+  [`--hide-key`](/docs/guides/encrypting/#hide-the-key) doesn't send the key
+  back to `deaddrop reset`; it only goes to that server's key notifiers.
 - **The old ticket stops working.** Transfers already in progress finish, then
   the old torrent's files are deleted, also from a `--data-dir`.
 - **One at a time:** a second request is refused while one is downloading.
 - **Any ticket works:** any ticket the server handed out works for `reset`,
   even one that no longer downloads anything. Only its endpoint address is used.
+- **Path reporting:** `reset` prints whether its connection to the server is
+  [direct or relayed](/docs/guides/relays/), and uses the `[relay]` settings
+  from its own config file.
 - **Single use:** a single-use server allows one download of each torrent it
   switches to. Without [`--wait-for-reset`](/docs/guides/wait-for-reset/) it
   still exits after that download.
@@ -48,8 +54,9 @@ deaddrop reset <ticket> 'magnet:?xt=urn:btih:...'   # or an http(s) .torrent URL
 | `--token <TOKEN>` | The server's reset token. Also `DEADDROP_RESET_TOKEN` or `[reset] token` in the config file. |
 | `--no-wait` | Return as soon as the server accepts the request, without waiting for the new ticket. |
 
-By default `reset` waits and prints `<ticket> <key>` on stdout, so you can
-capture it:
+By default `reset` waits and prints the new ticket on stdout: `<ticket>`, or
+`<ticket> <key>` if the server uses `--encrypt` (and not `--hide-key`). So you
+can capture it:
 
 ```sh
 read -r TICKET KEY < <(deaddrop reset <ticket> https://example.com/x.torrent)

@@ -1,31 +1,61 @@
 ---
 title: Fetching files
-description: Run `deaddrop fetch` to download, verify and decrypt a drop.
+description: Run `deaddrop fetch` to download and verify a drop, and decrypt it if the server used --encrypt.
 ---
 
 import { Aside } from '@astrojs/starlight/components';
 
 ```sh
-export DEADDROP_KEY=AGE-SECRET-KEY-1...           # the key from `serve`
 deaddrop fetch blobaa...                          # write files into the current directory
 deaddrop fetch blobaa... -o ~/dl                  # write files into ~/dl
+
+export DEADDROP_KEY=AGE-SECRET-KEY-1...           # only for data served with --encrypt
+deaddrop fetch blobaa...
 ```
 
 ## What happens
 
 1. The client connects to the server named in the ticket over iroh. It tries a
-   direct connection (with NAT hole punching) and falls back to a relay.
-2. It downloads the whole encrypted collection into a temporary folder,
+   direct connection (with NAT hole punching) and falls back to a relay, and
+   prints which [path](/docs/guides/relays/) it's using, and again if it
+   switches.
+2. It asks the server for the collection's size with a small **probe**
+   request, so it can show the total and an ETA.
+3. It downloads the whole collection into a temporary folder,
    `.deaddrop-<hash>`, inside the output folder, checking every chunk against
-   its BLAKE3 hash.
-3. It decrypts the manifest and each file with the key and writes them out
-   under their original names. Then the temporary folder is deleted.
-4. It disconnects, which lets a single-use server shut down.
+   its BLAKE3 hash. On a terminal this is a progress bar; otherwise a plain
+   line every few seconds.
+4. It writes the files out under their original names, then deletes the
+   temporary folder.
+5. It disconnects, which lets a single-use server shut down.
+
+<Aside type="caution" title="Needs a 2.0 server">
+	A 1.0 single-use server counts the size probe as the download and refuses
+	the real one. Upgrade the server too. A 1.0 multi-use server works. See
+	[1.0 vs 2.0](/docs/whats-new/#client-and-server-compatibility).
+</Aside>
+
+## Encrypted data
+
+`fetch` works out by itself whether the server used
+[`--encrypt`](/docs/guides/encrypting/):
+
+- **Encrypted, with the key:** step 4 decrypts the manifest and each file and
+  writes them under their real names.
+- **Encrypted, no key:** the download is **kept** in `.deaddrop-<hash>` in the
+  output folder. Run the same command again with the key and it finishes
+  without contacting the server, even after a single-use server has shut down.
+- **Not encrypted, but you passed a key:** it prints a note and ignores the key.
+
+```sh
+deaddrop fetch blobaa... -o ~/dl                        # oops, no key: download is kept
+DEADDROP_KEY=AGE-SECRET-KEY-1... deaddrop fetch blobaa... -o ~/dl   # finishes offline
+```
 
 ## Safety checks
 
-- A **wrong key** or **tampered data** is an error. age authenticates every
-  chunk, and no partial file is left under the real name.
+- **Tampered data** is an error. With encrypted data, so is a **wrong key**:
+  age authenticates every chunk. No partial file is left under the real name.
 - File names that are **absolute** or contain **`..`** are refused, so a
   malicious server can't make `fetch` write outside the output folder.
 
@@ -35,7 +65,8 @@ deaddrop fetch blobaa... -o ~/dl                  # write files into ~/dl
 | --- | --- |
 | `TICKET` | The ticket printed by `deaddrop serve` (starts with `blob`). |
 | `-o, --out <DIR>` | Directory to write the files into. Default: the current directory, or `[fetch] out` from the config file. |
-| `--key <KEY>` | The decryption key (`AGE-SECRET-KEY-1...`). Prefer `DEADDROP_KEY`. |
+| `--key <KEY>` | The decryption key (`AGE-SECRET-KEY-1...`), only for data served with `--encrypt`. Prefer `DEADDROP_KEY`. |
+| `--no-progress` | Plain progress lines instead of a progress bar. |
 
 <Aside type="tip">
 	`--key` puts the key into your shell history and makes it visible in `ps`.

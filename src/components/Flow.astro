@@ -3,7 +3,7 @@
 // Horizontal on wide screens, vertical on phones.
 ---
 
-<div class="flow" role="img" aria-label="BitTorrent swarm sends data to the deaddrop server, which never uploads. The server age-encrypts the data and sends ciphertext over iroh to the client, which verifies and decrypts it.">
+<div class="flow" role="img" aria-label="BitTorrent swarm sends data to the deaddrop server, which never uploads. The server sends the files over an end-to-end encrypted iroh connection to the client, which verifies them. With --encrypt, the server also age-encrypts the files and the client decrypts them.">
 	<div class="node">
 		<div class="icon">🌐</div>
 		<div class="name">BitTorrent swarm</div>
@@ -18,18 +18,18 @@
 	<div class="node hot">
 		<div class="icon">🖥️</div>
 		<div class="name mono">deaddrop serve</div>
-		<div class="sub">age-encrypts · deletes plaintext</div>
+		<div class="sub">tears down the swarm · <span class="opt">--encrypt: age</span></div>
 	</div>
 
 	<div class="link sealed">
 		<div class="track"><span class="pkt"></span><span class="pkt"></span><span class="pkt"></span></div>
-		<div class="label">iroh · QUIC<br /><em>BLAKE3-verified ciphertext</em></div>
+		<div class="label">iroh · encrypted QUIC<br /><em>BLAKE3-verified</em></div>
 	</div>
 
 	<div class="node">
 		<div class="icon">💻</div>
 		<div class="name mono">deaddrop fetch</div>
-		<div class="sub">verifies · decrypts</div>
+		<div class="sub">verifies · <span class="opt">decrypts if needed</span></div>
 	</div>
 </div>
 
@@ -69,6 +69,11 @@
 		margin-top: 4px;
 		font-size: 0.78rem;
 		color: var(--muted);
+	}
+	.sub .opt {
+		font-family: var(--mono);
+		color: var(--lime-dim, var(--lime));
+		white-space: nowrap;
 	}
 	.link {
 		position: relative;

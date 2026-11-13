@@ -1,0 +1,120 @@
+---
+title: Encrypting at rest
+description: Use `--encrypt` to age-encrypt the files on the server, and `--hide-key` to keep the key off the server's output.
+---
+
+import { Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+
+Every deaddrop transfer is encrypted **in transit**: iroh connections are QUIC
+with TLS 1.3, end to end, even through a relay. `--encrypt` adds a second,
+optional layer: [age](https://age-encryption.org) encryption **at rest**.
+
+```sh
+deaddrop serve --encrypt 'magnet:?xt=urn:btih:...'
+# stdout:  <ticket> AGE-SECRET-KEY-1...
+
+DEADDROP_KEY=AGE-SECRET-KEY-1... deaddrop fetch <ticket>
+```
+
+Or turn it on for every run in the [config file](/docs/guides/config/):
+
+```toml
+[serve]
+encrypt = true
+```
+
+<Aside type="note" title="Changed in 2.0">
+	In 1.0 this was always on. 2.0 makes it opt-in. See
+	[1.0 vs 2.0](/docs/whats-new/#encryption-is-opt-in).
+</Aside>
+
+## When to use it
+
+| Without `--encrypt` (default) | With `--encrypt` |
+| --- | --- |
+| The ticket alone is enough to download **and read** the data | The ticket gets the ciphertext; the key is needed to read it |
+| Plaintext stays on the server's disk while it's served | Plaintext is deleted as soon as each file is encrypted |
+| File names and the torrent name are visible to whoever has the ticket | Names are hidden in an encrypted manifest |
+| One secret to hand over | Two secrets, ideally over different channels |
+
+Turn it on when the **ticket travels somewhere semi-public** (a shared
+channel, a notifier you don't fully trust), or when the **server's disk isn't
+trusted**.
+
+## What it does
+
+<Steps>
+
+1. When the torrent finishes, each file is encrypted to a new X25519 key made
+   for that torrent. Each plaintext file is deleted as soon as it's encrypted
+   (about one extra file's worth of disk space), and the download folder is
+   deleted afterwards, also if encryption fails.
+2. Only the encrypted files go into the blob store and over iroh. Collection
+   entries are named `0`, `1`, ...; the real names are in
+   `deaddrop-manifest.age`.
+3. The key lives only in the server's memory. It's printed on stderr and
+   stdout and sent to notifiers with `include_key`. Each reset gets a new key.
+4. `fetch` detects the encryption and decrypts with `DEADDROP_KEY` or `--key`.
+
+</Steps>
+
+Details: [Encryption](/docs/concepts/encryption/).
+
+## Hide the key
+
+With `--encrypt`, the key normally shows up on the server's terminal, stdout,
+and any log those go to. `--hide-key` (or `serve.hide_key = true`) keeps it
+off the server's output entirely:
+
+- The key is **never printed**, on stderr or stdout. stdout gets just
+  `<ticket>`.
+- It is **never sent back** to `deaddrop reset`.
+- The only copies go to [notifiers](/docs/guides/notifications/) with
+  `include_key` (`+key`).
+
+<Tabs>
+<TabItem label="Command line">
+
+```sh
+deaddrop serve ./file.torrent --encrypt --hide-key \
+  --notify discord=https://discord.com/api/webhooks/<id>/<token> \
+  --notify webhook+key=https://keys.example.com/hook
+```
+
+</TabItem>
+<TabItem label="Config file">
+
+```toml
+[serve]
+encrypt = true
+hide_key = true
+
+[[serve.notify]]
+type = "discord"                                  # ticket only
+url = "https://discord.com/api/webhooks/<id>/<token>"
+
+[[serve.notify]]
+type = "webhook"
+url = "https://keys.example.com/hook"
+include_key = true                                # the only copy of the key
+```
+
+</TabItem>
+</Tabs>
+
+<Aside type="caution" title="Someone has to get the key">
+	The server **refuses to start** with `--hide-key` unless at least one notifier
+	has `include_key`. If every key notifier fails to send, it prints an error:
+	nobody can decrypt that torrent. Without `--encrypt`, `--hide-key` has no
+	effect.
+</Aside>
+
+## What it doesn't hide
+
+- File sizes, file count, and that a transfer happened.
+- The plaintext exists on the server's disk while the torrent downloads, and
+  deleting a file doesn't securely erase it (especially on SSDs).
+- Without `--hide-key`, the key ends up in any persistent log of the server's
+  output (systemd journal, a log file).
+
+See the [threat model](/docs/concepts/threat-model/).

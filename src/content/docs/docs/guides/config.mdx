@@ -18,6 +18,7 @@ deaddrop config check                                      # validate it and sho
 
 ```toml title="~/.config/deaddrop/config.toml"
 log = "off"                       # same syntax as RUST_LOG; "off" = no logs (the release default)
+# progress = true                 # false: plain progress lines even on a terminal
 
 [serve]
 multi_use = false
@@ -25,8 +26,10 @@ data_dir = "/var/lib/deaddrop"
 peers = ["192.168.1.10:6881"]
 # reset_token = "<long random string>"     # see "Resetting a server"
 # wait_for_reset = false                    # single use: stay up for resets
+# encrypt = false                           # true: also age-encrypt the files
+# hide_key = false                          # with encrypt: key goes only to include_key notifiers
 
-# Notifiers get the ticket only; include_key = true also sends the decryption key.
+# Notifiers get the ticket only; with encrypt, include_key = true also sends the decryption key.
 [[serve.notify]]
 type = "discord"
 url = "https://discord.com/api/webhooks/<id>/<token>"
@@ -41,9 +44,19 @@ out = "/home/me/Downloads"
 
 [reset]
 # token = "<long random string>"           # used by `deaddrop reset`
+
+[relay]
+# mode = "default"                          # "default" (n0), "custom", or "disabled"
+# urls = ["https://relay.example.com"]      # your own relays; implies mode = "custom"
 ```
 
 Every key is documented in the [config reference](/docs/reference/config/).
+
+<Aside type="tip" title="Upgrading from 1.0?">
+	To keep 1.0's always-on age encryption, add `encrypt = true` under
+	`[serve]`. Run `deaddrop config example` again to get a template with the
+	new 2.0 settings (`progress`, `encrypt`, `hide_key`, `[relay]`).
+</Aside>
 
 ## Where it's read from
 
@@ -70,7 +83,9 @@ they aren't merged.
 - **Relative paths** (`data_dir`, `out`) are resolved against the config
   file's directory.
 - **Typos are errors:** unknown keys or notifier types fail at startup with
-  the line and column.
+  the line and column. So do invalid `[relay]` combinations.
+- **`deaddrop config check`** shows every setting, including `serve.encrypt`,
+  `serve.hide_key` and the relay mode, with secrets hidden.
 - The torrent source and the fetch ticket are per-run inputs, so they stay on
   the command line.
 

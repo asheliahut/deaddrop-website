@@ -1,0 +1,79 @@
+---
+title: Agent skill
+description: Install an Agent Skill so Claude Code, Codex, GitHub Copilot and other AI coding agents know how to use and configure deaddrop.
+---
+
+import { Aside, FileTree } from '@astrojs/starlight/components';
+
+`deaddrop skill` installs an [Agent Skill](https://agentskills.io) that
+teaches AI coding agents how to use deaddrop: serving, fetching, resets, and
+setting up a config file step by step. The skill is built into the binary, so
+it always matches the version you have installed, and it includes the full
+config reference.
+
+```sh
+deaddrop skill install                                  # asks where, and for which agents
+deaddrop skill install --global --harness claude,codex  # for your user, in every project
+deaddrop skill install --project --all                  # only this repository; commit it to share
+deaddrop skill status                                   # where it's installed, and if it's current
+deaddrop skill uninstall --global --all
+deaddrop skill show                                     # print SKILL.md
+```
+
+## What gets installed
+
+A `deaddrop` folder in each agent's skills directory:
+
+<FileTree>
+- deaddrop/
+  - SKILL.md how to use deaddrop
+  - references/
+    - config.md every config setting, generated from this version's template
+</FileTree>
+
+## Where it goes
+
+| `--harness` | Global (`--global`) | Project (`--project`) |
+| --- | --- | --- |
+| `claude` (Claude Code) | `~/.claude/skills/` | `.claude/skills/` |
+| `codex` (OpenAI Codex) | `~/.agents/skills/` | `.agents/skills/` |
+| `copilot` (GitHub Copilot) | `~/.copilot/skills/` | `.github/skills/` |
+| `agents` (shared Agent Skills location, also read by the Copilot CLI and others) | `~/.agents/skills/` | `.agents/skills/` |
+
+- **Global** is for your user, in every project.
+- **Project** is the enclosing git repository, or the current directory.
+  `--dir` picks another. Commit the skill to share it with your team.
+- `--harness` takes a comma-separated list (or repeat it). `--all` means every
+  agent.
+
+On a terminal, `install` and `uninstall` ask for the scope and agents you left
+out, pre-selecting the agents they find. Without a terminal they fail
+instead, so scripts must pass `--global`/`--project` and `--harness`/`--all`.
+
+## Subcommands
+
+| Subcommand | Meaning |
+| --- | --- |
+| `skill install` | Install or update the skill. `--force` replaces a `deaddrop` skill deaddrop didn't write. |
+| `skill uninstall` | Remove the skill. `--force` removes one deaddrop didn't write. |
+| `skill status` | Where the skill is installed, for every agent and both scopes, and whether it's current. Takes `--dir`. |
+| `skill show` | Print `SKILL.md` to stdout. |
+
+## Updating
+
+Run `deaddrop skill install` again after upgrading deaddrop, with the same
+scope and agents. `skill status` tells you if an installed copy is out of
+date.
+
+<Aside type="note" title="It won't touch what it didn't write">
+	deaddrop marks the files it writes. It only replaces or removes a
+	`deaddrop` skill that it wrote, unless you pass `--force`, and `uninstall`
+	keeps any other files you added to the skill's folder.
+</Aside>
+
+## Installing from the repository
+
+The skill is also committed at
+[`skills/deaddrop/`](https://github.com/asheliahut/deaddrop/tree/main/skills/deaddrop)
+in the deaddrop repository, so tools that install skills straight from a
+GitHub repository can use it too.

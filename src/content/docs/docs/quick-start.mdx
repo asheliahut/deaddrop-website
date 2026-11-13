@@ -3,7 +3,7 @@ title: Quick start
 description: Serve a torrent from a server and fetch it on a client in two commands.
 ---
 
-import { Steps, Aside } from '@astrojs/starlight/components';
+import { Steps, Aside, Tabs, TabItem } from '@astrojs/starlight/components';
 
 You need `deaddrop` on two machines: a **server** that downloads the torrent
 and a **client** that receives it. See [Installation](/docs/installation/).
@@ -18,30 +18,27 @@ Neither machine needs an open port.
    deaddrop serve 'magnet:?xt=urn:btih:...'
    ```
 
-   The server downloads the torrent in leech-only mode, stops the torrent
-   session, encrypts every file, deletes the plaintext, and prints one line on
-   stdout:
+   The server downloads the torrent in leech-only mode (with a progress bar on
+   a terminal), stops the torrent session, and prints the **ticket** as one
+   line on stdout:
 
    ```txt
-   blobafk3...q7z AGE-SECRET-KEY-1QX...
+   blobafk3...q7z
    ```
 
-   The first word is the **ticket** and the second is the **decryption key**.
-
-2. **Hand over the ticket and the key.** Send them to whoever runs the client,
-   ideally over **different channels**. Anyone with the ticket can download the
-   ciphertext. The key is needed to read it.
+2. **Hand over the ticket.** Send it to whoever runs the client. Treat it as a
+   secret: anyone with the ticket can download the data.
 
 3. **Fetch on the client.**
 
    ```sh
-   export DEADDROP_KEY=AGE-SECRET-KEY-1QX...
    deaddrop fetch blobafk3...q7z -o ./downloads
    ```
 
-   The client connects to the server over iroh, downloads the encrypted
-   collection, checks every chunk against its BLAKE3 hash, decrypts the files,
-   and writes them out under their original names.
+   The client connects to the server over iroh, prints whether the connection
+   is direct or relayed, downloads the collection with a progress bar and ETA,
+   checks every chunk against its BLAKE3 hash, and writes the files out under
+   their original names.
 
 4. **Done.** By default the server is single use: once the client has
    everything and disconnects, it shuts down and its temporary directory is
@@ -49,9 +46,41 @@ Neither machine needs an open port.
 
 </Steps>
 
+## With encryption at rest
+
+Add `--encrypt` when the ticket alone shouldn't be enough to read the data,
+or the plaintext shouldn't sit on the server's disk while it's served:
+
+<Tabs>
+<TabItem label="Server">
+
+```sh
+deaddrop serve --encrypt 'magnet:?xt=urn:btih:...'
+```
+
+```txt
+blobafk3...q7z AGE-SECRET-KEY-1QX...
+```
+
+The first word is the **ticket** and the second is the **decryption key**.
+Send them over **different channels** when you can.
+
+</TabItem>
+<TabItem label="Client">
+
+```sh
+export DEADDROP_KEY=AGE-SECRET-KEY-1QX...
+deaddrop fetch blobafk3...q7z -o ./downloads
+```
+
+</TabItem>
+</Tabs>
+
 <Aside type="tip">
 	Put the key in `DEADDROP_KEY` rather than passing `--key` on the command line,
-	so it stays out of your shell history and `ps`.
+	so it stays out of your shell history and `ps`. Forgot the key? The download
+	is kept, and running `fetch` again with the key finishes it without the
+	server.
 </Aside>
 
 ## Where to go next
@@ -59,4 +88,6 @@ Neither machine needs an open port.
 - Keep serving to many clients with [`--multi-use`](/docs/guides/serving/#single-use-vs-multi-use).
 - Swap a running server to a new torrent with [`deaddrop reset`](/docs/guides/resetting/).
 - Push tickets to Discord or a webhook with [notifications](/docs/guides/notifications/).
+- Learn when to use [`--encrypt` and `--hide-key`](/docs/guides/encrypting/).
 - Put your settings in a [config file](/docs/guides/config/).
+- Let your AI coding agent drive it with the [agent skill](/docs/guides/agent-skill/).

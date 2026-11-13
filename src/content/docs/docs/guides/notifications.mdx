@@ -1,6 +1,6 @@
 ---
 title: Notifications
-description: Push tickets to Discord or any webhook, and choose which notifiers get the key.
+description: Push tickets to Discord or any webhook, and, with --encrypt, choose which notifiers get the key.
 ---
 
 import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
@@ -47,8 +47,12 @@ replaces the config file's list.
 
 ## Who gets the key
 
-By default a notifier gets the ticket but **not the decryption key**. Choose
-per notifier which ones get the key:
+Without [`--encrypt`](/docs/guides/encrypting/) there is no key: every
+notifier gets just the ticket, and **the ticket alone gives access to the
+data**, so only send it where you'd send the data itself.
+
+With `--encrypt`, a notifier gets the ticket but **not the decryption key** by
+default. Choose per notifier which ones get the key:
 
 - On the command line or in `DEADDROP_NOTIFY`, add `+key` to the type:
   `webhook+key=https://...`
@@ -59,11 +63,21 @@ per notifier which ones get the key:
 	so a leaked channel alone isn't enough to read the data.
 </Aside>
 
+### Key notifiers only
+
+Add [`--hide-key`](/docs/guides/encrypting/#hide-the-key) (or
+`serve.hide_key = true`) and the key is never printed on the server or sent
+back to `deaddrop reset`. Notifiers with `include_key` get the only copies:
+
+- The server refuses to start unless at least one notifier has `include_key`.
+- If every one of them fails to send, the server prints an error, since nobody
+  else has the key.
+
 ## Notifier types
 
 | Type | What it sends |
 | --- | --- |
-| `discord` | A channel message with the torrent name, size, mode and a copyable `deaddrop fetch …` command. Mentions are turned off and markdown in the name is escaped. With the key, it is shown as a spoiler, to be set as `DEADDROP_KEY`. |
+| `discord` | A channel message with the torrent name, size, mode and a copyable `deaddrop fetch …` command. Mentions are turned off and markdown in the name is escaped. With the key (`--encrypt` + `include_key`), it is shown as a spoiler, to be set as `DEADDROP_KEY`. |
 | `webhook` | `POST` with a JSON body. See the [webhook payload reference](/docs/reference/webhook/). |
 
 ## Failure handling

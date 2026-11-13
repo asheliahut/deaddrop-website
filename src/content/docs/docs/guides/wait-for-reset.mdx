@@ -12,10 +12,13 @@ where every torrent can be downloaded **exactly once**:
 export DEADDROP_RESET_TOKEN=$(openssl rand -hex 32)
 deaddrop serve first.torrent --wait-for-reset
 
-DEADDROP_KEY=<key> deaddrop fetch <ticket>           # the one download
-deaddrop reset <ticket> 'magnet:?xt=...'             # any ticket from this server works
-DEADDROP_KEY=<new key> deaddrop fetch <new ticket>   # each torrent has its own key
+deaddrop fetch <ticket>                       # the one download
+deaddrop reset <ticket> 'magnet:?xt=...'      # any ticket from this server works
+deaddrop fetch <new ticket>
 ```
+
+With [`--encrypt`](/docs/guides/encrypting/), each torrent also gets its own
+key: `DEADDROP_KEY=<new key> deaddrop fetch <new ticket>`.
 
 ## Lifecycle
 
@@ -29,7 +32,7 @@ DEADDROP_KEY=<new key> deaddrop fetch <new ticket>   # each torrent has its own 
    but serves nothing.
 
 3. A [reset](/docs/guides/resetting/) downloads the next torrent and serves it
-   once more, with a new ticket and a new key. A reset can also replace a
+   once more, with a new ticket (and, with `--encrypt`, a new key). A reset can also replace a
    torrent nobody has downloaded yet.
 
 </Steps>
@@ -39,6 +42,9 @@ DEADDROP_KEY=<new key> deaddrop fetch <new ticket>   # each torrent has its own 
 - A reset token (`--reset-token`, `DEADDROP_RESET_TOKEN`, or
   `serve.reset_token` in the config file).
 - Single use. `--wait-for-reset` is ignored with `--multi-use`.
+
+Clients' size-probe requests never count as the one download, so a 2.0
+`fetch` can show its total and ETA without using up the drop.
 
 <Aside>
 	Nothing is deleted on Ctrl-C beyond what normal single use does: with

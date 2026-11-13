@@ -36,8 +36,12 @@ the public swarm:
 ```sh
 cargo run --example seed -- ./some-dir       # prints magnet + peer address, writes ./some-dir.torrent
 cargo run -- serve ./some-dir.torrent --peer 127.0.0.1:<port>
-DEADDROP_KEY=<key> cargo run -- fetch <ticket> -o /tmp/out
+cargo run -- fetch <ticket> -o /tmp/out
 ```
+
+Add `--encrypt` to the `serve` line to test the age path, then pass the key
+with `DEADDROP_KEY=<key>` to `fetch`. Set `[relay] mode = "disabled"` in a
+test config to check that a local transfer goes direct.
 
 Debug builds log warnings by default. Use `RUST_LOG=deaddrop=debug` for more.
 

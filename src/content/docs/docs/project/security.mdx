@@ -36,13 +36,20 @@ rotate them first.
 
 ## Supported versions
 
-Only the latest release gets security fixes.
+deaddrop follows [semantic versioning](https://semver.org). Security fixes
+land in the latest release of the current major version; there are no
+backports to older minor or patch releases, so upgrade to the newest `2.x.y`
+to pick up a fix.
 
 | Version | Supported |
 | --- | --- |
-| Latest release | ✅ |
-| Older releases | ❌ |
+| Latest `2.x.y` (current major) | ✅ |
+| Older `2.x.y` releases | ❌ (upgrade to the latest) |
+| `1.x` and earlier | ❌ |
 | `main` | ✅ (best effort) |
+
+When a new major version ships, the previous major stops receiving fixes.
+Installed with Homebrew? `brew upgrade deaddrop` picks up security releases.
 
 ## What to expect
 
@@ -65,8 +72,18 @@ disclose.
 In scope are problems in deaddrop's own code that break what it promises. See
 [Threat model → Promises](/docs/concepts/threat-model/#promises) for the list,
 plus crashes or resource exhaustion that a remote peer can trigger cheaply.
+For example:
+
+- A relay or network observer reading the data; with `--encrypt`, recovering
+  plaintext or names without the key; with `--hide-key`, the key showing up
+  in any output or reset reply.
+- A size probe being counted as a single-use download.
+- `deaddrop skill` writing outside the chosen skills directory, or replacing
+  or removing files it didn't write without `--force`.
 
 Out of scope are the [known limits](/docs/concepts/threat-model/#known-limits)
+(including that, without `--encrypt`, the ticket alone gives access to the
+data), what an AI agent does with the instructions in the `deaddrop` skill,
 and content legality, or what users choose to share.
 
 Bugs in dependencies (iroh, iroh-blobs, librqbit, age/rage, ...) should go to

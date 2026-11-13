@@ -11,9 +11,9 @@ import FlowDiagram from '../../../../components/DocsFlow.astro';
 deaddrop has two halves, both in one binary:
 
 - **`deaddrop serve`** runs on a machine with a good connection. It leeches
-  the torrent, encrypts it and serves the ciphertext over iroh.
+  the torrent and serves it over iroh, optionally age-encrypting it first.
 - **`deaddrop fetch`** runs wherever you want the files. It downloads,
-  verifies and decrypts.
+  verifies and, if needed, decrypts.
 
 ## The life of a drop
 
@@ -27,25 +27,30 @@ deaddrop has two halves, both in one binary:
    session (DHT, trackers, peer connections) is stopped **before** iroh starts
    serving.
 
-3. **Seal.** A new X25519 [age](https://age-encryption.org) key is generated
-   in memory. Each file is encrypted to it and the plaintext is deleted as soon
-   as it's encrypted. Real names go into an encrypted manifest,
-   `deaddrop-manifest.age`. See [Encryption](/docs/concepts/encryption/).
+3. **Seal (optional).** With `--encrypt`, a new X25519
+   [age](https://age-encryption.org) key is generated in memory. Each file is
+   encrypted to it and the plaintext is deleted as soon as it's encrypted.
+   Real names go into an encrypted manifest, `deaddrop-manifest.age`. See
+   [Encryption](/docs/concepts/encryption/).
 
-4. **Publish.** The encrypted files are imported into an
+4. **Publish.** The files are imported into an
    [iroh-blobs](https://github.com/n0-computer/iroh-blobs) store by reference
-   (not copied) and grouped into one collection: the encrypted manifest first,
-   then the files, named by index only (`0`, `1`, `2`…). The server only
-   answers `get` requests for that collection. The server prints a **ticket**: the collection hash plus the server's
-   iroh endpoint address.
+   (not copied) and grouped into one collection. With `--encrypt`, the
+   encrypted manifest comes first, then the files, named by index only (`0`,
+   `1`, `2`…). The server only answers requests for that collection: size
+   probes, and `get` requests that count toward single use. It prints a
+   **ticket**: the collection hash plus the server's iroh endpoint address
+   (relay URL and direct addresses).
 
-5. **Transfer.** The client dials the endpoint from the ticket. iroh tries a
-   direct QUIC connection with NAT hole punching and falls back to a relay, so
-   neither side needs an open port. Every chunk is verified against its BLAKE3
-   hash as it arrives.
+5. **Transfer.** The client dials the endpoint from the ticket. iroh reaches
+   it through a [relay](/docs/guides/relays/), then tries to hole-punch a
+   direct QUIC path, so neither side needs an open port. Both sides print
+   which path they're on. The client probes the collection's size, then
+   downloads it, verifying every chunk against its BLAKE3 hash.
 
-6. **Open.** The client decrypts the manifest, then each file, and writes them
-   under their real names. Wrong key or tampered data is an error.
+6. **Open.** The client writes the files under their real names. If the data
+   is encrypted, it decrypts the manifest and each file first. Wrong key or
+   tampered data is an error.
 
 7. **Vanish.** A single-use server shuts down (or, with `--wait-for-reset`,
    deletes the data and waits). A temp data directory is deleted on exit.
@@ -56,7 +61,7 @@ deaddrop has two halves, both in one binary:
 
 | ALPN | Purpose | Enabled |
 | --- | --- | --- |
-| iroh-blobs | Serves the encrypted collection | Always |
+| iroh-blobs | Serves the collection (size probes and downloads) | Always |
 | `deaddrop/reset/0` | Accepts `deaddrop reset` requests | Only when a reset token is set |
 
 ## Source layout
@@ -67,11 +72,14 @@ is small:
 | File | Role |
 | --- | --- |
 | `cli.rs` | Command-line definition and help text |
-| `config.rs` | TOML config loading and precedence |
+| `config.rs` | TOML config loading, precedence, and relay settings |
 | `torrent.rs` | Leech-only BitTorrent download via librqbit |
-| `crypt.rs` | age encryption, the manifest, decryption |
+| `crypt.rs` | age encryption, the manifest, decryption (for `--encrypt`) |
 | `server.rs` | `serve`: blob store, iroh router, single-use lifecycle |
-| `gate.rs` | Decides which blob requests are answered: only `get` for the current collection, one client at a time in single use |
+| `gate.rs` | Decides which blob requests are answered: only the current collection, one client at a time in single use, size probes never counted |
+| `net.rs` | iroh endpoint setup shared by every command: relay mode, connection path reporting |
+| `ui.rs` | Progress bars and plain progress lines, colors |
 | `reset.rs` | The `deaddrop/reset/0` protocol, server and client side |
-| `client.rs` | `fetch`: download, verify, decrypt |
+| `client.rs` | `fetch`: probe, download, verify, decrypt if needed |
 | `notify/` | Discord and webhook notifiers |
+| `skill.rs` | `deaddrop skill`: installs the agent skill |

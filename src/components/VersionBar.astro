@@ -1,0 +1,112 @@
+---
+// Version bar shown at the top of every docs page (it overrides Starlight's
+// Banner slot) and on the landing page. The docs always describe the current
+// release; the bar points people coming from the previous major at the page
+// that lists what changed. A page's own `banner` frontmatter still renders
+// underneath it.
+import { PREV_VERSION, VERSION } from '../site';
+
+interface Props {
+	/** `landing` uses the landing page's fixed palette instead of Starlight tokens. */
+	variant?: 'docs' | 'landing';
+}
+
+const { variant = 'docs' } = Astro.props;
+const major = (v: string) => v.replace(/^v/, '').replace(/\.0\.0$/, '.0');
+const current = major(VERSION);
+const previous = major(PREV_VERSION);
+const href = '/docs/whats-new/';
+const onPage = Astro.url.pathname.replace(/\/$/, '') === href.replace(/\/$/, '');
+const banner = variant === 'docs' ? Astro.locals.starlightRoute?.entry.data.banner : undefined;
+---
+
+<div class:list={['version-bar', variant]} data-pagefind-ignore>
+	<span class="vb-badge">v{current}</span>
+	<span class="vb-text">
+		{
+			onPage ? (
+				<>
+					Comparing deaddrop <strong>{previous}</strong> and <strong>{current}</strong>. Everything else on this site
+					describes <strong>{current}</strong>.
+				</>
+			) : (
+				<>
+					These docs are for deaddrop <strong>{current}</strong>, the latest release. Encryption at rest is now opt-in.
+				</>
+			)
+		}
+	</span>
+	{
+		!onPage && (
+			<a class="vb-link" href={href}>
+				What changed since {previous} →
+			</a>
+		)
+	}
+</div>
+{banner && <div class="sl-banner" set:html={banner.content} />}
+
+<style>
+	.version-bar {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: center;
+		gap: 0.35rem 0.75rem;
+		padding: 0.45rem 1rem;
+		font-size: 0.875rem;
+		line-height: 1.4;
+		text-align: center;
+		text-wrap: balance;
+	}
+	.vb-badge {
+		font-family: var(--vb-mono);
+		font-size: 0.75rem;
+		font-weight: 700;
+		padding: 0.05rem 0.45rem;
+		border-radius: 999px;
+	}
+	.vb-link {
+		font-weight: 600;
+		white-space: nowrap;
+		text-decoration: underline;
+		text-underline-offset: 3px;
+	}
+
+	/* Docs: follow Starlight's light/dark tokens. */
+	.version-bar.docs {
+		--vb-mono: var(--sl-font-mono);
+		background: var(--sl-color-accent-low);
+		color: var(--sl-color-gray-1);
+		border-bottom: 1px solid var(--sl-color-hairline);
+	}
+	.docs .vb-badge {
+		background: var(--sl-color-accent);
+		color: var(--sl-color-black);
+	}
+	.docs .vb-link {
+		color: var(--sl-color-accent-high);
+	}
+
+	/* Landing page: its own dark palette. */
+	.version-bar.landing {
+		--vb-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
+		background: #141a10;
+		color: #b9c0b6;
+		border-bottom: 1px solid #232a20;
+	}
+	.landing .vb-badge {
+		background: #84cc16;
+		color: #0b0d0c;
+	}
+	.landing .vb-link {
+		color: #d9f99d;
+	}
+
+	.sl-banner {
+		padding: var(--sl-nav-pad-y) var(--sl-nav-pad-x);
+		background-color: var(--sl-color-banner-bg, var(--sl-color-bg-accent));
+		color: var(--sl-color-banner-text, var(--sl-color-text-invert));
+		text-align: center;
+	}
+</style>
