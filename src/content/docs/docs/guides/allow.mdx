@@ -1,0 +1,75 @@
+---
+title: Allowing specific clients
+description: "Use deaddrop id and serve --allow so only the clients you name can download, and a leaked ticket is useless to anyone else."
+head:
+  - tag: title
+    content: "Only let specific clients download (--allow)"
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+Normally anyone who has the ticket can download. To let in only the people you
+mean, each of them runs `deaddrop id` once and sends you the id it prints.
+
+<Steps>
+
+1. **On the client**, create an identity and print its id:
+
+   ```sh
+   $ deaddrop id
+   aedfde36826e82dc8a3d4900dc5960d785374b4867b37c5e05e7b498b3b8414d
+   ```
+
+2. **On the server**, allow that id:
+
+   ```sh
+   deaddrop serve x.torrent --allow aedfde36826e82dc8a3d4900dc5960d785374b4867b37c5e05e7b498b3b8414d
+   ```
+
+3. **On the client**, fetch as usual. `fetch` uses the identity automatically.
+
+</Steps>
+
+The server checks the id right after the encrypted handshake, which proves it,
+and turns everyone else away before they can list or download anything.
+`fetch` then stops at once with a message saying it isn't on the allow list,
+and which id to allow, instead of retrying. Resets aren't affected; they have
+their own token.
+
+## Several clients
+
+Repeat `--allow`, set `DEADDROP_ALLOW=id1,id2`, or list them in the config
+file:
+
+```toml
+[serve]
+allow = ["aedfde36…", "5c1a90b2…"]
+```
+
+`--allow` and `DEADDROP_ALLOW` replace the config file's list.
+
+## The identity file
+
+- **The id isn't secret. The identity file is:** it holds the key that proves
+  the id (`~/.local/share/deaddrop/identity.key` on Linux, mode 600). Anyone
+  who has a copy can pass as that client.
+- **Once the file exists, every `fetch` uses it**, so every server you fetch
+  from sees the same id. Without it, each fetch uses a new random id.
+- Delete the file to go back to random ids, or keep it elsewhere and point at
+  it only when needed with `--identity <FILE>`, `DEADDROP_IDENTITY`, or
+  `identity` under `[fetch]` in the config file.
+- `deaddrop id --new` replaces the identity. Servers that allowed the old id
+  won't accept this client any more.
+
+<Aside type="tip">
+	`--allow` pairs well with [`--expire-after`](/docs/guides/expiring/): only
+	the right client can pick the drop up, and if they never do, it's wiped.
+</Aside>
+
+## Options
+
+| Where | Flag / env / config | Meaning |
+| --- | --- | --- |
+| `serve` | `--allow <ID>`, `DEADDROP_ALLOW`, `serve.allow` | Only let these clients download or list. Repeatable. |
+| `fetch`, `id` | `--identity <FILE>`, `DEADDROP_IDENTITY`, `fetch.identity` | Identity file to use. |
+| `id` | `--new` | Replace the identity with a new one. |

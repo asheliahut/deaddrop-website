@@ -1,6 +1,9 @@
 ---
 title: Fetching files
-description: Run `deaddrop fetch` to download and verify a drop, and decrypt it if the server used --encrypt.
+description: "Run deaddrop fetch to download and verify a drop, resume it if it's interrupted, and decrypt it if the server used --encrypt."
+head:
+  - tag: title
+    content: "Fetching a drop with deaddrop fetch"
 ---
 
 import { Aside } from '@astrojs/starlight/components';
@@ -11,6 +14,8 @@ deaddrop fetch blobaa... -o ~/dl                  # write files into ~/dl
 
 export DEADDROP_KEY=AGE-SECRET-KEY-1...           # only for data served with --encrypt
 deaddrop fetch blobaa...
+
+deaddrop fetch --list blobaa...                   # see what's in it, without downloading
 ```
 
 ## What happens
@@ -29,11 +34,60 @@ deaddrop fetch blobaa...
    temporary folder.
 5. It disconnects, which lets a single-use server shut down.
 
-<Aside type="caution" title="Needs a 2.0 server">
+<Aside type="caution" title="Needs a 2.0 or newer server">
 	A 1.0 single-use server counts the size probe as the download and refuses
 	the real one. Upgrade the server too. A 1.0 multi-use server works. See
-	[1.0 vs 2.0](/docs/whats-new/#client-and-server-compatibility).
+	[Upgrading from 1.0](/docs/upgrading-from-1/#client-and-server-compatibility).
 </Aside>
+
+## List a drop
+
+`fetch --list` (`-l`) shows what's in a drop without downloading it:
+
+```sh
+$ deaddrop fetch --list <ticket>
+    6.00 B  data/sub/b.txt
+292.97 KiB  data/a.bin
+2 files, 292.97 KiB
+```
+
+Only the file names and sizes are fetched, one file per line on stdout, so it
+doesn't use up a single-use server's download and the real `fetch` still
+works afterwards. That needs a 2.1 or newer server: an older one counts a
+listing as the download. With `--encrypt` data the names are encrypted too, so
+pass the key to see them; without it you get just the count and sizes.
+
+## Interrupted downloads
+
+If the connection drops mid-download, `fetch` reconnects by itself and only
+downloads what is still missing. It keeps trying for `--retry-for <SECS>`
+(default 120, `0` to give up at once, or `fetch.retry_for` in the config)
+without progress.
+
+If it gives up or you stop it, the partial download stays in
+`.deaddrop-<hash>` in the output folder, and **running the same command again
+resumes from there**. A single-use server lets a client continue as long as
+its download hasn't finished. After a hard disconnect (the client crashed or
+lost its network), the server can take up to about 30 s to notice and free its
+slot; until then reconnects are refused and `fetch` just keeps retrying.
+
+## When the server turns you away
+
+A 2.1 server says why it won't serve a client, and `fetch` explains it:
+
+| Reason | What `fetch` does |
+| --- | --- |
+| Another client is downloading from this single-use server | Says so once, then waits quietly for up to `--retry-for`, in case that download fails and the slot frees up. `--list` stops at once. If the server then disappears, `fetch` says the other download most likely finished. |
+| The single-use drop has already been downloaded | Stops at once. |
+| The ticket [expired](/docs/guides/expiring/) | Stops at once. |
+| The ticket was replaced by a reset | Stops at once; ask for the new ticket. |
+| The server isn't serving that ticket | Stops at once. |
+| Not on the server's [allow list](/docs/guides/allow/) | Stops at once, and says which id to allow. |
+
+When nothing was downloaded, `fetch` leaves no `.deaddrop-<hash>` folder
+behind, and when the download can never be finished (already downloaded,
+expired, replaced) it deletes the partial one. Servers older than 2.1 only say
+"permission".
 
 ## Encrypted data
 
@@ -66,6 +120,9 @@ DEADDROP_KEY=AGE-SECRET-KEY-1... deaddrop fetch blobaa... -o ~/dl   # finishes o
 | `TICKET` | The ticket printed by `deaddrop serve` (starts with `blob`). |
 | `-o, --out <DIR>` | Directory to write the files into. Default: the current directory, or `[fetch] out` from the config file. |
 | `--key <KEY>` | The decryption key (`AGE-SECRET-KEY-1...`), only for data served with `--encrypt`. Prefer `DEADDROP_KEY`. |
+| `-l, --list` | List the files and their sizes without downloading them. |
+| `--retry-for <SECS>` | Keep reconnecting for this long without progress. Default 120. |
+| `--identity <FILE>` | Identity file to connect with, for a server's [`--allow`](/docs/guides/allow/). Default: the one `deaddrop id` makes, if it exists. |
 | `--no-progress` | Plain progress lines instead of a progress bar. |
 
 <Aside type="tip">

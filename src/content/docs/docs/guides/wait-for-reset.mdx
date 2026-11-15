@@ -1,6 +1,9 @@
 ---
 title: Single use, long running
-description: Use `--wait-for-reset` to run a long-lived dead drop where every torrent is downloaded exactly once.
+description: "Use --wait-for-reset to run a long-lived dead drop where every torrent is downloaded exactly once, then wiped while the server waits for the next."
+head:
+  - tag: title
+    content: "Long-running single-use dead drops (--wait-for-reset)"
 ---
 
 import { Steps, Aside } from '@astrojs/starlight/components';
@@ -43,12 +46,17 @@ key: `DEADDROP_KEY=<new key> deaddrop fetch <new ticket>`.
   `serve.reset_token` in the config file).
 - Single use. `--wait-for-reset` is ignored with `--multi-use`.
 
-Clients' size-probe requests never count as the one download, so a 2.0
-`fetch` can show its total and ETA without using up the drop.
+Clients' size-probe requests and [`fetch --list`](/docs/guides/fetching/#list-a-drop)
+never count as the one download, so a client can see the total, an ETA or the
+file list without using up the drop.
+
+Add [`--expire-after`](/docs/guides/expiring/) so a drop nobody picks up is
+wiped and the server goes back to waiting for a reset.
 
 <Aside>
 	Nothing is deleted on Ctrl-C beyond what normal single use does: with
-	`--data-dir`, a torrent that wasn't downloaded yet stays on disk.
+	`--data-dir`, a torrent that wasn't downloaded by a client yet stays on
+	disk. A reset that was still downloading is deleted.
 </Aside>
 
 ## As a config file

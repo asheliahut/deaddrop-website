@@ -1,6 +1,9 @@
 ---
 title: Resetting a server
-description: Point a running server at a different torrent with `deaddrop reset`.
+description: "Use deaddrop reset to point a running server at a different torrent with a reset token. The old ticket stops working as soon as it's reset."
+head:
+  - tag: title
+    content: "Pointing a running server at a new torrent (deaddrop reset)"
 ---
 
 import { Aside } from '@astrojs/starlight/components';
@@ -22,7 +25,10 @@ deaddrop reset <ticket> 'magnet:?xt=urn:btih:...'   # or an http(s) .torrent URL
 
 - **Sources:** a magnet URI, an http(s) URL (the server fetches it), or a local
   `.torrent` file (its contents are sent to the server). The server never
-  treats a reset source as a path on its own disk.
+  treats a reset source as a path on its own disk, and a reset only ever
+  brings in a torrent, even on a server that started with local files, stdin
+  or an http(s) download: a reset token holder can't make the server read its
+  files or fetch arbitrary URLs for them.
 - **No downtime:** the server keeps serving the current torrent while the new
   one downloads. If the download fails, nothing changes and `reset` reports
   the error.
@@ -34,7 +40,11 @@ deaddrop reset <ticket> 'magnet:?xt=urn:btih:...'   # or an http(s) .torrent URL
   [`--hide-key`](/docs/guides/encrypting/#hide-the-key) doesn't send the key
   back to `deaddrop reset`; it only goes to that server's key notifiers.
 - **The old ticket stops working.** Transfers already in progress finish, then
-  the old torrent's files are deleted, also from a `--data-dir`.
+  the old torrent's files are deleted, also from a `--data-dir`. Local files
+  the server started with are never deleted. A client with the old ticket is
+  told it was replaced by a reset.
+- **Fresh expiry:** with [`--expire-after`](/docs/guides/expiring/), the new
+  ticket gets the full time again.
 - **One at a time:** a second request is refused while one is downloading.
 - **Any ticket works:** any ticket the server handed out works for `reset`,
   even one that no longer downloads anything. Only its endpoint address is used.

@@ -1,0 +1,61 @@
+---
+// Every deaddrop release, newest first, from src/content/releases/ (generated
+// from the deaddrop CHANGELOG.md by scripts/sync-releases.mjs).
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import { getCollection, render } from 'astro:content';
+import { RELEASES } from '../../site';
+import { sortedReleases, releaseSlug } from '../../releases';
+
+const releases = await Promise.all(
+	sortedReleases(await getCollection('releases')).map(async (entry) => ({
+		entry,
+		slug: releaseSlug(entry.data.version),
+		Content: (await render(entry)).Content,
+	})),
+);
+
+const fmt = new Intl.DateTimeFormat('en', { dateStyle: 'long', timeZone: 'UTC' });
+---
+
+<StarlightPage
+	frontmatter={{
+		title: 'Releases',
+		description:
+			'Every deaddrop release, newest first: new features, fixes and breaking changes in each version, with links to binaries and an RSS feed.',
+		head: [{ tag: 'title', content: 'deaddrop releases and changelog' }],
+	}}
+	headings={releases.map(({ entry, slug }) => ({ depth: 2, slug, text: entry.data.version }))}
+>
+	<p>
+		Every deaddrop release, newest first, from the project's
+		<a href="https://github.com/asheliahut/deaddrop/blob/main/CHANGELOG.md">CHANGELOG.md</a>. Binaries are on
+		<a href={RELEASES}>GitHub releases</a>. Follow along with the <a href="/releases.xml">RSS feed</a>.
+	</p>
+
+	{
+		releases.map(({ entry, slug, Content }) => (
+			<section>
+				<h2 id={slug}>{entry.data.version}</h2>
+				<p class="release-meta">
+					<time datetime={entry.data.date.toISOString().slice(0, 10)}>{fmt.format(entry.data.date)}</time>
+					{' · '}
+					<a href={`${RELEASES}/tag/v${entry.data.version}`}>Download</a>
+					{entry.data.compare && (
+						<>
+							{' · '}
+							<a href={entry.data.compare}>Code changes</a>
+						</>
+					)}
+				</p>
+				<Content />
+			</section>
+		))
+	}
+</StarlightPage>
+
+<style>
+	.release-meta {
+		color: var(--sl-color-gray-3);
+		font-size: var(--sl-text-sm);
+	}
+</style>

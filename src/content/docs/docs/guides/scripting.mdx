@@ -1,6 +1,9 @@
 ---
 title: Scripting & output
-description: stdout vs. stderr, capturing tickets and keys, and exit codes.
+description: "Use deaddrop in scripts: tickets on stdout and everything else on stderr, capturing tickets and keys, progress output in pipes, and exit codes."
+head:
+  - tag: title
+    content: "Scripting deaddrop: stdout, tickets and exit codes"
 ---
 
 import { Aside } from '@astrojs/starlight/components';
@@ -41,7 +44,7 @@ DEADDROP_KEY="$KEY" deaddrop fetch "$TICKET" -o ./dl
 
 <Aside type="note" title="Changed in 2.0">
 	1.0 always printed `<ticket> <key>`. Scripts that require a non-empty `KEY`
-	need `--encrypt` now. See [1.0 vs 2.0](/docs/whats-new/#stdout-format).
+	need `--encrypt` now. See [Upgrading from 1.0](/docs/upgrading-from-1/#stdout-format).
 </Aside>
 
 ## Progress in scripts

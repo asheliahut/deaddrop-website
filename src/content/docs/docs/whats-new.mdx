@@ -1,201 +1,152 @@
 ---
-title: 1.0 vs 2.0
-description: Everything that changed between deaddrop 1.0 and 2.0, and how to upgrade.
+title: What's new in 2.1
+description: What deaddrop 2.1 adds and changes compared with 2.0, and how to upgrade.
+head:
+  - tag: title
+    content: "What's new in deaddrop 2.1"
 ---
 
-import { Aside, Tabs, TabItem, Steps, LinkCard } from '@astrojs/starlight/components';
+import { Aside, LinkCard, Steps } from '@astrojs/starlight/components';
 
-deaddrop **2.0.0** shipped on 2026-11-13. The rest of this site describes 2.0.
-This page lists what's different from **1.0.0**, so you can upgrade or run the
-two side by side. Each comparison below opens on the 2.0 tab; switch to 1.0
-to see the old behaviour.
+deaddrop **2.1.0** shipped on 2026-11-15. The rest of this site describes 2.1.
+This page lists what's new since **2.0.0**. Coming from 1.0? Read
+[Upgrading from 1.0](/docs/upgrading-from-1/) first.
 
-<Aside type="caution" title="Breaking changes">
-	1. **age encryption is off by default.** Add `--encrypt` (or
-	   `serve.encrypt = true`) to keep 1.0's behaviour.
-	2. **stdout is `<ticket>` without encryption**, and `<ticket> <key>` with
-	   `--encrypt`.
-	3. **1.0 and 2.0 don't mix.** A 1.0 client can't download from a 2.0
-	   server, and a 2.0 client can't download from a 1.0 single-use server.
-	   Upgrade servers and clients together.
+<Aside type="tip" title="No breaking changes">
+	2.1 works with 2.0 clients and servers in both directions. One behaviour
+	change is worth knowing about: a **single-use server now deletes its data
+	once the download is done**, also from a `--data-dir`. See
+	[Changed in 2.1](#changed-in-21).
 </Aside>
 
 ## At a glance
 
-| | 1.0 | 2.0 |
+| | 2.0 | 2.1 |
 | --- | --- | --- |
-| age encryption at rest | Always on | Opt-in: `--encrypt` / `serve.encrypt` |
-| Transport encryption (iroh, QUIC + TLS 1.3) | Always on | Always on |
-| `serve` stdout | `<ticket> <key>` | `<ticket>`, or `<ticket> <key>` with `--encrypt` |
-| Client needs a key | Always | Only for `--encrypt` data |
-| File names on the wire | Hidden in an encrypted manifest | Visible in the collection; hidden with `--encrypt` |
-| Keep the key off the server's output | Not possible | `--hide-key` / `serve.hide_key` |
-| Relays | n0's public relays only | `[relay]`: `default`, `custom` (your own) or `disabled` |
-| Connection path | Not shown | Printed per connection, and on every relay ↔ direct switch |
-| Progress | Plain lines | Progress bars on a terminal; plain lines otherwise or with `--no-progress` |
-| Log colors in files and pipes | Colored (escape codes) | Only on a terminal; honors `NO_COLOR`, `CLICOLOR`, `TERM=dumb` |
-| `fetch` shows total size and ETA | No | Yes, via a small size probe |
-| `fetch` of encrypted data without the key | Error | Keeps the download, finishes later with the key and no server |
-| AI agent skill | None | `deaddrop skill install` |
-| 1.0 client → 2.0 server | n/a | ❌ The 1.0 client stops early (see [compatibility](#client-and-server-compatibility)) |
-| 2.0 client → 1.0 single-use server | n/a | ❌ Refused (the probe counts as the download) |
-| 2.0 client → 1.0 multi-use server | n/a | ✅ Works |
+| What `serve` can serve | Torrents (magnet, `.torrent` file or URL) | Torrents, local files and directories, stdin (`-`), any http(s) download |
+| Who can download | Anyone with the ticket | Anyone with the ticket, or only the ids you `--allow` |
+| Ticket lifetime | Until used (or forever, with `--multi-use`) | Optional deadline: `--expire-after 24h` |
+| Notifiers | Discord, webhook | Discord, Slack, Mattermost, Rocket.Chat, Telegram, ntfy, email (SMTP), SMS (Twilio), webhook |
+| Interrupted `fetch` | Download thrown away | Reconnects and resumes; rerunning the command picks up where it left off |
+| See what's in a drop | Download it | `fetch --list` (doesn't use up a single-use download) |
+| Client turned away | Bare "permission" error | A reason: busy, already downloaded, expired, replaced, not allowed |
+| Single-use data in `--data-dir` | Kept after the download | Deleted after the download |
 
-## Encryption is opt-in
+## Serve more than torrents
 
-In 1.0, `serve` always age-encrypted every file, deleted the plaintext, hid
-the file names and printed a decryption key. In 2.0 it serves the files as
-they are. The connection is still end-to-end encrypted by iroh, so a relay or
-a network observer can't read the data, but **the ticket alone is now enough
-to download and read it**.
-
-<Tabs syncKey="deaddrop-version">
-<TabItem label="2.0 (current)">
+`SOURCE` can now be local files and directories, stdin, or any http(s) URL:
 
 ```sh
-# serve as-is; iroh encrypts the connection
-deaddrop serve 'magnet:?xt=urn:btih:...'
-# stdout:  <ticket>
-deaddrop fetch <ticket> -o ./downloads
-
-# opt in to age encryption at rest
-deaddrop serve --encrypt 'magnet:?xt=urn:btih:...'
-# stdout:  <ticket> AGE-SECRET-KEY-1...
-DEADDROP_KEY=AGE-SECRET-KEY-1... deaddrop fetch <ticket> -o ./downloads
+deaddrop serve ./photos notes.txt                 # local files and directories, served where they are
+tar c dir | deaddrop serve - --name dir.tar       # whatever is piped in, as one file
+deaddrop serve https://example.com/x.iso          # the server downloads it, then serves it
 ```
 
-</TabItem>
-<TabItem label="1.0">
+- **Local files** are served in place and never moved, changed or deleted,
+  also with `--encrypt` (the encrypted copies go in the data dir) and after a
+  single-use download.
+- **`-`** reads stdin into one file named by `--name` (default `stdin`).
+- **http(s) URLs** are downloaded and served as one file. If the response is a
+  `.torrent` file, it's downloaded as a torrent, so tracker links without
+  `.torrent` in the URL work as before. `--as-is` serves it as a plain file.
+- **Resets still only take torrents**, so a reset token can't make the server
+  read its own files or fetch arbitrary URLs.
+
+[Serving →](/docs/guides/serving/#sources)
+
+## Only let specific clients in
 
 ```sh
-# always encrypted
-deaddrop serve 'magnet:?xt=urn:btih:...'
-# stdout:  <ticket> AGE-SECRET-KEY-1...
-DEADDROP_KEY=AGE-SECRET-KEY-1... deaddrop fetch <ticket> -o ./downloads
+# on the client, once
+deaddrop id
+# on the server
+deaddrop serve x.torrent --allow <id>
 ```
 
-</TabItem>
-</Tabs>
+Everyone else is turned away right after the handshake, so a leaked ticket is
+useless to them. Also `DEADDROP_ALLOW` (comma-separated) and `serve.allow`. On
+the client, `--identity`, `DEADDROP_IDENTITY` and `fetch.identity` pick
+another identity file.
+[Allowing only specific clients →](/docs/guides/allow/)
 
-To keep the 1.0 behaviour everywhere, put this in your
-[config file](/docs/guides/config/):
+## Expiring tickets
 
-```toml
-[serve]
-encrypt = true
+```sh
+deaddrop serve x.torrent --expire-after 24h
 ```
 
-See [Encrypting at rest](/docs/guides/encrypting/) for when it's worth it.
+Each ticket stops working that long after it's printed. Then the data is
+deleted and the server exits, or with `--wait-for-reset` waits for the next
+reset, whose ticket gets the full time again. Notifiers say when the ticket
+expires, and the webhook JSON gets [`expires_at`](/docs/reference/webhook/).
+[Expiring tickets →](/docs/guides/expiring/)
 
-## stdout format
+## Seven new notifiers
 
-`serve` and `reset` still print one line per ticket on stdout, and everything
-else on stderr. What's on the line depends on encryption.
+```sh
+deaddrop serve x.torrent --notify slack=https://hooks.slack.com/services/<T…>/<B…>/<secret>
+deaddrop serve x.torrent --notify mattermost=https://mattermost.example.com/hooks/<key>
+deaddrop serve x.torrent --notify rocketchat=https://chat.example.com/hooks/<id>/<token>
+deaddrop serve x.torrent --notify telegram=<bot_token>@<chat_id>
+deaddrop serve x.torrent --notify ntfy=https://ntfy.sh/<long-random-topic>
+deaddrop serve x.torrent --notify 'email=smtps://user:pass@smtp.example.com?from=me@example.com&to=you@example.com'
+deaddrop serve x.torrent --notify twilio=<account_sid>:<auth_token>@<from>/<to>
+```
 
-<Tabs syncKey="deaddrop-version">
-<TabItem label="2.0 (current)">
+All of them take `+key` / `include_key`. Email and SMS aren't end-to-end
+encrypted, so prefer another notifier for the key.
+[Notifications →](/docs/guides/notifications/)
 
-| Mode | stdout line |
-| --- | --- |
-| default | `<ticket>` |
-| `--encrypt` | `<ticket> <key>` |
-| `--encrypt --hide-key` | `<ticket>` |
+## Better `fetch`
 
-`read -r TICKET KEY` still works. `KEY` is just empty when there's no key to
-show.
+- **Resumes interrupted downloads.** If the connection drops, `fetch`
+  reconnects and downloads only what's missing, for up to `--retry-for`
+  seconds (default 120) without progress. If it gives up or you stop it, the
+  partial download stays in `.deaddrop-<hash>`, and running the same command
+  again continues from there.
+- **`fetch --list`** prints each file's path and size, and a total, without
+  downloading. It doesn't use up a single-use server's download (a 2.0 server
+  does count it, so upgrade the server first).
+- **Clear reasons when turned away**: another client is downloading, the drop
+  was already downloaded, the ticket expired or was replaced by a reset, or
+  you're not on the allow list. Only a busy slot is retried; the others stop
+  at once. No empty `.deaddrop-<hash>` folder is left behind.
 
-</TabItem>
-<TabItem label="1.0">
+[Fetching files →](/docs/guides/fetching/)
 
-| Mode | stdout line |
-| --- | --- |
-| always | `<ticket> <key>` |
+## Changed in 2.1
 
-</TabItem>
-</Tabs>
+- **A single-use server deletes the data when its download is done**, also
+  from a `--data-dir` and also without `--wait-for-reset`. In 2.0 it only shut
+  down, and the files (or their encrypted copies) and the blob store stayed in
+  the data dir. A multi-use server still keeps its data until a reset
+  replaces it or, with a `--data-dir`, after exit. Local files you serve are
+  never deleted.
+- A reset that is still downloading when the server exits is deleted instead
+  of left half-done in the data dir.
+- A single-use server refuses a second client as soon as it connects.
 
-## Client and server compatibility
+## Compatibility
 
-Before downloading, a 2.0 client sends a small **size-probe** request so it
-can show a total and an ETA, and a 2.0 server answers it without counting it
-as the one download. The two versions don't understand each other's side of
-that exchange:
+| Client ↓ / Server → | 2.0 | 2.1 |
+| --- | --- | --- |
+| **2.0** | ✅ | ✅ (refusals show as "permission") |
+| **2.1** | ✅ (`--list` counts as the download on a single-use server) | ✅ |
 
-- **1.0 client → 2.0 server:** the 1.0 client takes the server's size
-  information as the end of the download and stops before it has the files.
-- **2.0 client → 1.0 single-use server:** the 1.0 server doesn't know about
-  probes, so it counts the probe as the download and refuses the real one.
-
-| Client ↓ / Server → | 1.0 single use | 1.0 multi use | 2.0 (any mode) |
-| --- | --- | --- | --- |
-| **1.0** | ✅ | ✅ | ❌ |
-| **2.0** | ❌ | ✅ | ✅ |
-
-Upgrade servers and clients together.
-
-## New in 2.0
-
-- **`--encrypt` / `serve.encrypt`:** opt-in age encryption at rest, exactly as
-  1.0 did it: a new X25519 key per torrent, plaintext deleted, file names in
-  an encrypted manifest. [Encrypting at rest →](/docs/guides/encrypting/)
-- **`--hide-key` / `serve.hide_key`:** with `--encrypt`, the key is never
-  printed or sent back to `deaddrop reset`; only notifiers with `include_key`
-  get it. [Hiding the key →](/docs/guides/encrypting/#hide-the-key)
-- **`[relay]` config section:** use n0's public relays, only your own
-  (`iroh-relay`), or none. [Connections & relays →](/docs/guides/relays/)
-- **Connection path reporting:** every connection says whether it goes
-  through a relay or a direct path, and again when it switches.
-- **Progress bars** for the torrent, each client transfer on the server, and
-  the `fetch` download, with plain lines for logs and pipes.
-  [Progress & logging →](/docs/guides/progress/)
-- **`--no-progress` / `DEADDROP_NO_PROGRESS` / `progress = false`:** plain
-  progress lines even on a terminal.
-- **Resumable decryption:** if `fetch` gets encrypted data without a key, the
-  download stays in `.deaddrop-<hash>`. Run it again with the key and it
-  finishes without contacting the server, even after a single-use server has
-  shut down. [Fetching files →](/docs/guides/fetching/)
-- **`fetch` detects encryption itself.** A key passed for unencrypted data is
-  ignored with a note.
-- **`deaddrop skill`:** installs an [Agent Skill](https://agentskills.io) so
-  Claude Code, Codex, GitHub Copilot and others know how to use and configure
-  deaddrop. [Agent skill →](/docs/guides/agent-skill/)
-
-## Changed in 2.0
-
-- Notifiers get the key only when the data is encrypted, and only those with
-  `include_key`. Without `--encrypt` every notifier gets just the ticket.
-- Log lines have color codes only when stderr is a terminal. `NO_COLOR`,
-  `CLICOLOR=0`, `CLICOLOR_FORCE` and `TERM=dumb` are honored.
-- When stderr isn't a terminal, progress is a plain line every few seconds
-  plus a summary. The torrent progress line keeps its 1.0 format.
-- Release archives include `CHANGELOG.md`, and GitHub release notes come from
-  it.
-- New dependency: `indicatif` (progress bars).
-
-## Upgrading from 1.0
+## Upgrading from 2.0
 
 <Steps>
 
-1. **Upgrade every machine.** `brew upgrade deaddrop`, or grab the
-   [2.0.0 binaries](/docs/installation/#prebuilt-binaries). Servers and clients
-   must move together: a 1.0 client can't fetch from a 2.0 server, and a 2.0
-   client can't fetch from a 1.0 single-use server.
+1. **Upgrade.** `brew upgrade deaddrop`, or grab the
+   [2.1.0 binaries](/docs/installation/#prebuilt-binaries). Servers and
+   clients can be upgraded in any order.
 
-2. **Decide on encryption.** If you relied on the key (the ticket was posted
-   somewhere semi-public, or the server's disk isn't trusted), add
-   `encrypt = true` under `[serve]` or pass `--encrypt`.
+2. **Check your `--data-dir`.** If you relied on a single-use server leaving
+   the downloaded files there, switch to `--multi-use` or copy them out
+   before the client fetches.
 
-3. **Check your scripts.** Anything that requires a non-empty `KEY` from
-   `read -r TICKET KEY` needs `--encrypt`, or should handle an empty key.
-
-4. **Review notifiers.** Without `--encrypt`, the ticket is all anyone needs,
-   so only send it where you'd send the data itself.
-
-5. **Validate the config.** `deaddrop config check` now also shows
-   `serve.encrypt`, `serve.hide_key` and the relay setting.
-
-6. **Optional:** add `--hide-key`, a `[relay]` section, or
-   `deaddrop skill install`.
+3. **Optional:** add `--allow`, `--expire-after`, or one of the new
+   notifiers.
 
 </Steps>
 

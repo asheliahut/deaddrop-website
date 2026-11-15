@@ -1,6 +1,9 @@
 ---
 title: Config file
 description: Put every setting in a TOML file, and understand where it's read from and how it's merged.
+head:
+  - tag: title
+    content: "Configuring deaddrop with a TOML config file"
 ---
 
 import { Aside } from '@astrojs/starlight/components';
@@ -56,6 +59,12 @@ Every key is documented in the [config reference](/docs/reference/config/).
 	To keep 1.0's always-on age encryption, add `encrypt = true` under
 	`[serve]`. Run `deaddrop config example` again to get a template with the
 	new 2.0 settings (`progress`, `encrypt`, `hide_key`, `[relay]`).
+</Aside>
+
+<Aside type="tip" title="New in 2.1">
+	`serve.allow`, `serve.expire_after`, `fetch.retry_for`, `fetch.identity`,
+	and seven new `[[serve.notify]]` types. `deaddrop config example` prints
+	them all.
 </Aside>
 
 ## Where it's read from

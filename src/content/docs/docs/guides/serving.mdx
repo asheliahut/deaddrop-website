@@ -1,6 +1,9 @@
 ---
-title: Serving a torrent
-description: Run `deaddrop serve` to leech a torrent and serve it over iroh, optionally age-encrypted.
+title: Serving files
+description: "Run deaddrop serve to leech a torrent, or take local files, stdin or a URL, and serve it over iroh, optionally age-encrypted."
+head:
+  - tag: title
+    content: "Serving torrents and files with deaddrop serve"
 ---
 
 import { Aside, Steps } from '@astrojs/starlight/components';
@@ -11,9 +14,14 @@ deaddrop serve https://example.com/x.torrent      # .torrent URLs and local .tor
 deaddrop serve file.torrent --multi-use           # keep serving to any number of clients until Ctrl-C
 deaddrop serve file.torrent --wait-for-reset      # one download per torrent, then wait for the next (needs a reset token)
 deaddrop serve file.torrent --encrypt             # also age-encrypt the files; prints a decryption key
+deaddrop serve ./photos notes.txt                 # local files and directories, served where they are
+tar c dir | deaddrop serve - --name dir.tar       # whatever is piped in, as one file
+deaddrop serve https://example.com/x.iso          # the server downloads it, then serves it
 ```
 
 ## What happens
+
+For a torrent:
 
 <Steps>
 
@@ -32,6 +40,10 @@ deaddrop serve file.torrent --encrypt             # also age-encrypt the files; 
 
 </Steps>
 
+For local files, steps 1 and 2 are skipped. For stdin or an http(s) download,
+the data is saved to the data dir instead of torrented. Either way, the
+ticket is printed once the data is ready.
+
 Give the ticket to the client: `deaddrop fetch <ticket>`.
 
 ### With `--encrypt`
@@ -45,23 +57,44 @@ the server's disk. The client runs `DEADDROP_KEY=<key> deaddrop fetch <ticket>`.
 
 ## Sources
 
-`SOURCE` can be:
+| `SOURCE` | What happens |
+| --- | --- |
+| `'magnet:?...'` | Downloaded as a torrent, leech only, then the torrent session is shut down. Quote it: `?` and `&` are shell metacharacters. |
+| `x.torrent`, `https://.../x.torrent` | A local `.torrent` file, or an http(s) URL whose path ends in `.torrent`: a torrent too. |
+| `FILE` or `DIR` (one or more) | Served where they are. deaddrop never moves, changes or deletes them, also not with `--encrypt` (the encrypted copies go in the data dir) or after a single-use download. A directory keeps its name as the top folder. Symlinks inside directories, special files and empty folders are skipped. |
+| `-` | Reads stdin into one file, named by `--name` (default `stdin`). |
+| any other `https://...` / `http://...` | The server downloads it and serves it as one file, named by `--name`, the `Content-Disposition` file name, or the URL's last part. If the response is a `.torrent` file (by `Content-Type` or by its contents), that torrent is downloaded instead, so tracker links like `download.php?id=…` keep working. |
 
-- a **magnet URI**: `'magnet:?xt=urn:btih:...'` (quote it, the `?` and `&` are shell metacharacters)
-- an **http(s) URL** of a `.torrent` file
-- a **local path** to a `.torrent` file
+`--as-is` turns the torrent detection off: a local `.torrent` file or a URL is
+served as a plain file. Resets only ever take torrents (see
+[Resetting a server](/docs/guides/resetting/)).
+
+<Aside type="caution" title="Don't change files while they're served">
+	The client checks every chunk against its hash and rejects a download whose
+	files changed underneath it. Local files also can't be inside the data dir.
+</Aside>
+
+```sh
+pg_dump mydb | deaddrop serve - --name mydb.sql --encrypt
+deaddrop serve 'https://example.com/download?id=42' --name report.pdf
+```
 
 ## Single use vs. multi use
 
 By default the server is **single use**:
 
-- It serves one client. While that client is connected, other clients are rejected.
+- It serves one client. Whoever connects first gets the slot; while it's taken,
+  other clients are turned away with a reason, and `fetch` says so.
 - Once that client has the whole collection and disconnects (or 30 s after the
-  transfer completes), the server shuts down. With
-  [`--wait-for-reset`](/docs/guides/wait-for-reset/) it deletes the data and waits instead.
-- If the client drops out before finishing, the next client can connect.
+  transfer completes), the server deletes the data and shuts down, also from a
+  `--data-dir`. With [`--wait-for-reset`](/docs/guides/wait-for-reset/) it
+  waits for the next torrent instead. Local files given as the source are
+  never deleted.
+- If the client drops out before finishing, it (or another client) can
+  connect again and [resume](/docs/guides/fetching/#interrupted-downloads).
 - A client's small **size-probe** request (so `fetch` can show a total and an
-  ETA) is answered but never counts as the one download.
+  ETA) and [`fetch --list`](/docs/guides/fetching/#list-a-drop) are answered but
+  never count as the one download.
 
 `--multi-use` keeps serving to any number of clients until you press Ctrl-C,
 with one progress bar per transfer. `--multi-use=false` forces single use even
@@ -72,30 +105,36 @@ if the config file turns multi use on.
 | Flag | Meaning |
 | --- | --- |
 | `--multi-use` | Keep serving to any number of clients until Ctrl-C. |
-| `--data-dir <DIR>` | Keep the torrent data and blob store here. If you leave this out, deaddrop uses a temp directory and deletes it on exit. |
+| `--name <NAME>` | File name for stdin (`-`) or an http(s) download. |
+| `--as-is` | Serve a `.torrent` file or URL as a plain file instead of downloading the torrent. |
+| `--data-dir <DIR>` | Keep downloaded data and the blob store here. If you leave this out, deaddrop uses a temp directory and deletes it on exit. A single-use server deletes the data once its one download is done, even from a data dir; a multi-use server's data stays until a reset replaces it. |
 | `--peer <IP:PORT>` | Extra BitTorrent peer to connect to. Repeatable. Useful for private swarms or when DHT and trackers can't find peers. |
 | `--notify <TYPE=URL>` | Send the ticket somewhere when it's ready. Repeatable. See [Notifications](/docs/guides/notifications/). |
 | `--reset-token <TOKEN>` | Let `deaddrop reset` switch the server to a different torrent. Prefer `DEADDROP_RESET_TOKEN` or the config file. |
 | `--wait-for-reset` | Single use, needs a reset token: after the one download, delete the data and wait for a reset. |
 | `--encrypt` | Also age-encrypt the files before serving them, delete the plaintext, and print a decryption key. Off by default, since iroh already encrypts the connection. See [Encrypting at rest](/docs/guides/encrypting/). |
 | `--hide-key` | Only with `--encrypt`: never print the decryption key; send it only to notifiers with `include_key` (at least one is required). |
+| `--allow <ID>` | Only let this client download or list. Repeatable. See [Allowing specific clients](/docs/guides/allow/). |
+| `--expire-after <DURATION>` | Stop serving a ticket this long after it's printed (`30m`, `24h`, `7d`), then delete the data. See [Expiring tickets](/docs/guides/expiring/). |
 | `-c, --config <FILE>` | TOML [config file](/docs/guides/config/). Works with every command. |
 | `--no-progress` | Plain progress lines instead of progress bars. Works with every command. See [Progress & logging](/docs/guides/progress/). |
 
 ## Disk space
 
-Without `--encrypt`, the downloaded files are served from where they are and
-imported into the blob store by reference, so you need the torrent's size and
-little more.
+Without `--encrypt`, the downloaded files (or your local files) are served
+from where they are and imported into the blob store by reference, so you need
+the torrent's size and little more, and nothing extra for local files.
 
 With `--encrypt`, each plaintext file is deleted as soon as it is encrypted, so
 you need about **one extra file's worth** of disk space on top of the torrent.
+Local files are left alone, so their encrypted copies need as much space again
+in the data dir.
 The encrypted files are imported by reference too, so disk usage isn't doubled.
 
 <Aside type="caution">
 	Without `--encrypt`, the plaintext stays on the server's disk while it is
 	served (it's deleted afterwards), and **anyone with the ticket can download
-	it**. Even with `--encrypt`, the plaintext exists while the torrent
+	it** unless you [`--allow`](/docs/guides/allow/) only specific clients. Even with `--encrypt`, the plaintext exists while the torrent
 	downloads, and deleting a file doesn't securely erase it, especially on
 	SSDs. See the [threat model](/docs/concepts/threat-model/).
 </Aside>

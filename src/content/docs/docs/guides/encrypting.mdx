@@ -1,6 +1,9 @@
 ---
 title: Encrypting at rest
-description: Use `--encrypt` to age-encrypt the files on the server, and `--hide-key` to keep the key off the server's output.
+description: "Use --encrypt to age-encrypt the files and file names on the server, and --hide-key to keep the decryption key out of the server's output."
+head:
+  - tag: title
+    content: "Encrypting files at rest with age (--encrypt)"
 ---
 
 import { Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
@@ -25,7 +28,7 @@ encrypt = true
 
 <Aside type="note" title="Changed in 2.0">
 	In 1.0 this was always on. 2.0 makes it opt-in. See
-	[1.0 vs 2.0](/docs/whats-new/#encryption-is-opt-in).
+	[Upgrading from 1.0](/docs/upgrading-from-1/#encryption-is-opt-in).
 </Aside>
 
 ## When to use it

@@ -1,6 +1,9 @@
 ---
 title: CLI reference
-description: Every deaddrop command, argument and flag.
+description: "Every deaddrop command (serve, fetch, reset, id, config, skill, completions) with its arguments, flags, defaults, output and exit status."
+head:
+  - tag: title
+    content: "deaddrop CLI reference: commands and flags"
 ---
 
 import { Aside } from '@astrojs/starlight/components';
@@ -11,9 +14,10 @@ deaddrop [OPTIONS] <COMMAND>
 
 | Command | Purpose |
 | --- | --- |
-| [`serve`](#deaddrop-serve) | Download a torrent without seeding it, then serve the files over iroh |
+| [`serve`](#deaddrop-serve) | Serve a torrent (downloaded without seeding), local files, stdin or an http(s) download over iroh |
 | [`fetch`](#deaddrop-fetch) | Download the files a deaddrop server is serving |
 | [`reset`](#deaddrop-reset) | Make a server serve a different torrent |
+| [`id`](#deaddrop-id) | Show this client's id, for a server's `--allow` |
 | [`config`](#deaddrop-config) | Show, create or check the config file |
 | [`skill`](#deaddrop-skill) | Install an agent skill so AI coding agents know how to use deaddrop |
 | [`completions`](#deaddrop-completions) | Print a shell completion script |
@@ -32,23 +36,28 @@ deaddrop [OPTIONS] <COMMAND>
 
 ## `deaddrop serve`
 
-Download a torrent (leech only, no seeding), then serve its contents over iroh.
+Serve a torrent (downloaded leech only, no seeding), local files, stdin or an
+http(s) download over iroh.
 
 ```txt
-deaddrop serve [OPTIONS] <SOURCE>
+deaddrop serve [OPTIONS] <SOURCE>...
 ```
 
 | Argument / option | Env | Config key | Meaning |
 | --- | --- | --- | --- |
-| `<SOURCE>` | | | Magnet URI, http(s) URL of a `.torrent` file, or path to a local `.torrent` file |
+| `<SOURCE>...` | | | Magnet URI, `.torrent` file or URL, one or more local files or directories, `-` for stdin, or any http(s) URL to download. See [Sources](/docs/guides/serving/#sources). |
+| `--name <NAME>` | | | File name for stdin (`-`) or an http(s) download. Default: `stdin`, or for a download the name the web server sends or the URL's last part. |
+| `--as-is` | | | Serve a `.torrent` file or URL as a plain file instead of downloading the torrent it describes. |
 | `--multi-use[=BOOL]` | | `serve.multi_use` | Keep serving to any number of clients until Ctrl-C. `--multi-use=false` forces single use. |
-| `--data-dir <DIR>` | | `serve.data_dir` | Keep torrent data and the blob store here. Default: a temp dir deleted on exit. |
+| `--data-dir <DIR>` | | `serve.data_dir` | Keep downloaded data and the blob store here. Default: a temp dir deleted on exit. A single-use server deletes the data once its download is done, even from here; local files being served are never deleted. |
 | `--peer <IP:PORT>` | | `serve.peers` | Extra BitTorrent peer. Repeatable. |
-| `--notify <TYPE=URL>` | `DEADDROP_NOTIFY` | `serve.notify` | Send the ticket to `discord=<URL>` or `webhook=<URL>`. With `--encrypt`, add `+key` to also send the key. Repeatable; env is comma-separated. |
+| `--notify <TYPE=URL>` | `DEADDROP_NOTIFY` | `serve.notify` | Send the ticket to `discord=<URL>`, `email=<SMTP_URL>`, `slack=<URL>`, `mattermost=<URL>`, `rocketchat=<URL>`, `webhook=<URL>`, `ntfy=<URL>`, `telegram=<BOT_TOKEN>@<CHAT_ID>` or `twilio=<SID>:<TOKEN>@<FROM>/<TO>`. With `--encrypt`, add `+key` to also send the key. Repeatable; env is comma-separated. |
 | `--reset-token <TOKEN>` | `DEADDROP_RESET_TOKEN` | `serve.reset_token` | Enable `deaddrop reset`. At least 16 characters. |
 | `--wait-for-reset[=BOOL]` | | `serve.wait_for_reset` | Single use: after the download, delete the data and wait for a reset. Needs a reset token. Ignored with `--multi-use`. |
 | `--encrypt[=BOOL]` | | `serve.encrypt` | Also age-encrypt the files, delete the plaintext, hide file names, and print a decryption key. Off by default. |
 | `--hide-key[=BOOL]` | | `serve.hide_key` | With `--encrypt`: never print the key or send it back to `reset`; only notifiers with `include_key` get it (at least one required). Ignored without `--encrypt`. |
+| `--allow <ID>` | `DEADDROP_ALLOW` | `serve.allow` | Only let the client with this id (from `deaddrop id`) download or list. Repeatable; env is comma-separated. Resets aren't affected. |
+| `--expire-after <DURATION>` | `DEADDROP_EXPIRE_AFTER` | `serve.expire_after` | Stop serving a ticket this long after it's printed (`30m`, `24h`, `7d`, `1h30m`), then delete the data. A bare number is seconds; `0` or `never` turns it off. |
 
 ```sh
 deaddrop serve 'magnet:?xt=urn:btih:...'
@@ -60,9 +69,13 @@ DEADDROP_RESET_TOKEN=$(openssl rand -hex 32) deaddrop serve ./file.torrent --wai
 deaddrop serve ./file.torrent > tickets.txt             # one `<ticket>` line per ticket
 deaddrop serve ./file.torrent --encrypt > tickets.txt   # one `<ticket> <key>` line per ticket
 deaddrop serve ./file.torrent --encrypt --hide-key --notify webhook+key=https://...
+deaddrop serve ./photos notes.txt                       # local files, served where they are
+pg_dump mydb | deaddrop serve - --name mydb.sql --encrypt
+deaddrop serve 'https://example.com/download?id=42' --name report.pdf
+deaddrop serve ./file.torrent --allow <id> --expire-after 24h
 ```
 
-Guide: [Serving a torrent](/docs/guides/serving/).
+Guide: [Serving files](/docs/guides/serving/).
 
 ---
 
@@ -81,17 +94,22 @@ deaddrop fetch [OPTIONS] <TICKET>
 | `<TICKET>` | | | The ticket printed by `deaddrop serve` (starts with `blob`) |
 | `-o, --out <DIR>` | | `fetch.out` | Directory to write the files into. Default: `.` |
 | `--key <KEY>` | `DEADDROP_KEY` | | The decryption key printed by `serve --encrypt` (`AGE-SECRET-KEY-1...`). Only needed if the server encrypts. Prefer the env var. |
+| `-l, --list` | | | List the files and their sizes without downloading them. Doesn't use up a single-use download on a 2.1+ server. |
+| `--retry-for <SECS>` | | `fetch.retry_for` | Keep reconnecting (and resuming) for this many seconds without progress after the connection drops. Default `120`; `0` gives up on the first failure. |
+| `--identity <FILE>` | `DEADDROP_IDENTITY` | `fetch.identity` | Identity file to connect with. Default: the one `deaddrop id` makes, if it exists; otherwise a new random id each time. |
 
 ```sh
 deaddrop fetch blobaa...                  # write files into the current directory
 deaddrop fetch blobaa... -o ~/dl          # write files into ~/dl
 export DEADDROP_KEY=AGE-SECRET-KEY-1...   # for data served with --encrypt
 deaddrop fetch blobaa...
+deaddrop fetch --list blobaa...           # names and sizes only
 ```
 
 <Aside type="caution">
-	`fetch` needs a 2.0 server: it sends a size probe first, which a 1.0
-	single-use server counts as the download.
+	`fetch` needs a 2.0 or newer server: it sends a size probe first, which a
+	1.0 single-use server counts as the download. `--list` needs a 2.1 server
+	to not count as the download.
 </Aside>
 
 Guide: [Fetching files](/docs/guides/fetching/).
@@ -123,7 +141,33 @@ deaddrop reset <ticket> ./other.torrent
 read -r TICKET KEY < <(deaddrop reset <ticket> https://example.com/x.torrent)
 ```
 
+Resets only ever bring in a torrent, even on a server that started with local
+files, stdin or an http(s) download.
+
 Guide: [Resetting a server](/docs/guides/resetting/).
+
+---
+
+## `deaddrop id`
+
+Show this client's id, to give to a server's operator for `--allow`. Creates
+the identity file the first time.
+
+```txt
+deaddrop id [OPTIONS]
+```
+
+| Option | Env | Config key | Meaning |
+| --- | --- | --- | --- |
+| `--identity <FILE>` | `DEADDROP_IDENTITY` | `fetch.identity` | Identity file. Default: `~/.local/share/deaddrop/identity.key` on Linux. |
+| `--new` | | | Replace the identity with a new one. Servers that allowed the old id won't accept this client. |
+
+```sh
+deaddrop id          # prints a 64-character hex id
+deaddrop id --new    # start over with a new id
+```
+
+Guide: [Allowing specific clients](/docs/guides/allow/).
 
 ---
 
@@ -194,7 +238,7 @@ terminal, progress bars are drawn on stderr; otherwise (or with
 
 | Exit code | Meaning |
 | --- | --- |
-| `0` | Success, including a single-use server shutting down after its download, and Ctrl-C |
+| `0` | Success, including a single-use server shutting down after its download or when its ticket expires, and Ctrl-C |
 | `1` | Error |
 | `2` | Bad command-line usage |
 

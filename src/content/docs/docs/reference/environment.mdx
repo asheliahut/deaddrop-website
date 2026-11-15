@@ -1,12 +1,18 @@
 ---
 title: Environment variables
-description: Environment variables deaddrop reads.
+description: "Every environment variable deaddrop reads, such as DEADDROP_KEY, DEADDROP_ALLOW and RUST_LOG, the flag each one matches, and how they take precedence."
+head:
+  - tag: title
+    content: "deaddrop environment variables"
 ---
 
 | Variable | Used by | Same as | Meaning |
 | --- | --- | --- | --- |
 | `DEADDROP_CONFIG` | all commands | `--config` | Path to the config file |
 | `DEADDROP_KEY` | `fetch` | `--key` | Decryption key (`AGE-SECRET-KEY-1...`) for data served with `--encrypt`. An empty value is ignored. |
+| `DEADDROP_IDENTITY` | `fetch`, `id` | `--identity`, `fetch.identity` | Identity file a client connects with, for a server's `--allow` |
+| `DEADDROP_ALLOW` | `serve` | `--allow`, `serve.allow` | Comma-separated client ids allowed to download |
+| `DEADDROP_EXPIRE_AFTER` | `serve` | `--expire-after`, `serve.expire_after` | How long each ticket works after it's printed, e.g. `24h` |
 | `DEADDROP_NOTIFY` | `serve` | `--notify` | Comma-separated notifiers, e.g. `discord=https://...,webhook+key=https://...` |
 | `DEADDROP_RESET_TOKEN` | `serve`, `reset` | `--reset-token`, `--token` | Reset token |
 | `DEADDROP_NO_PROGRESS` | all commands | `--no-progress`, `progress = false` | `true`: plain progress lines, no bars |

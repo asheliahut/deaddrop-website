@@ -1,6 +1,9 @@
 ---
 title: Architecture
 description: The path a drop takes, from the BitTorrent swarm to the client's disk.
+head:
+  - tag: title
+    content: "How deaddrop works: architecture of a drop"
 ---
 
 import { Steps } from '@astrojs/starlight/components';
@@ -52,8 +55,9 @@ deaddrop has two halves, both in one binary:
    is encrypted, it decrypts the manifest and each file first. Wrong key or
    tampered data is an error.
 
-7. **Vanish.** A single-use server shuts down (or, with `--wait-for-reset`,
-   deletes the data and waits). A temp data directory is deleted on exit.
+7. **Vanish.** A single-use server deletes the data and shuts down (or, with
+   `--wait-for-reset`, waits). Local files given as the source are never
+   deleted. A temp data directory is deleted on exit.
 
 </Steps>
 

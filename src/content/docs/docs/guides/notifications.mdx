@@ -1,6 +1,9 @@
 ---
 title: Notifications
-description: Push tickets to Discord or any webhook, and, with --encrypt, choose which notifiers get the key.
+description: Push tickets to Discord, Slack, Mattermost, Rocket.Chat, Telegram, ntfy, email, SMS or any webhook, and, with --encrypt, choose which notifiers get the key.
+head:
+  - tag: title
+    content: "Send deaddrop tickets to Discord, Slack, Telegram, email or webhooks"
 ---
 
 import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
@@ -9,8 +12,18 @@ The server can send the ticket out when it's ready:
 
 ```sh
 deaddrop serve x.torrent --notify discord=https://discord.com/api/webhooks/<id>/<token>
+deaddrop serve x.torrent --notify 'email=smtps://user:pass@smtp.example.com?from=me@example.com&to=you@example.com'
+deaddrop serve x.torrent --notify slack=https://hooks.slack.com/services/<T…>/<B…>/<secret>
+deaddrop serve x.torrent --notify mattermost=https://mattermost.example.com/hooks/<key>
+deaddrop serve x.torrent --notify rocketchat=https://chat.example.com/hooks/<id>/<token>
 deaddrop serve x.torrent --notify webhook=https://example.com/hooks/deaddrop
+deaddrop serve x.torrent --notify ntfy=https://ntfy.sh/<long-random-topic>
+deaddrop serve x.torrent --notify telegram=<bot_token>@<chat_id>
+deaddrop serve x.torrent --notify twilio=<account_sid>:<auth_token>@<from>/<to>
 ```
+
+With [`--expire-after`](/docs/guides/expiring/), each message also says when
+the ticket stops working.
 
 ## Keep webhook URLs secret
 
@@ -29,6 +42,25 @@ url = "https://discord.com/api/webhooks/<id>/<token>"
 type = "webhook"
 url = "https://example.com/hooks/deaddrop"
 include_key = true
+
+[[serve.notify]]
+type = "email"
+url = "smtps://user:password@smtp.example.com"
+from = "deaddrop <deaddrop@example.com>"
+to = ["me@example.com"]              # one address, or a list
+
+[[serve.notify]]
+type = "telegram"
+bot_token = "123456789:AAE_token_from_BotFather"
+chat_id = -1001234567890
+# thread_id = 42                     # post in this forum topic
+
+[[serve.notify]]
+type = "twilio"
+account_sid = "AC0123456789abcdef0123456789abcdef"
+auth_token = "<auth token from the Twilio console>"
+from = "+15550001111"
+to = "+15552223333"
 ```
 
 </TabItem>
@@ -77,8 +109,22 @@ back to `deaddrop reset`. Notifiers with `include_key` get the only copies:
 
 | Type | What it sends |
 | --- | --- |
-| `discord` | A channel message with the torrent name, size, mode and a copyable `deaddrop fetch …` command. Mentions are turned off and markdown in the name is escaped. With the key (`--encrypt` + `include_key`), it is shown as a spoiler, to be set as `DEADDROP_KEY`. |
+| `discord` | A channel message with the name, size, mode and a copyable `deaddrop fetch …` command, and the expiry in each reader's own time. Mentions are turned off and markdown in the name is escaped. With the key (`--encrypt` + `include_key`), it is shown as a spoiler, to be set as `DEADDROP_KEY`. |
+| `slack` | A message to a Slack [incoming webhook](https://api.slack.com/messaging/webhooks) with the name, size, mode and the `deaddrop fetch …` command in a code block. The expiry is shown in each reader's time zone. Link and mention markup in the name is escaped, and link previews are off. With the key, it is added as inline code (Slack has no spoilers). |
+| `mattermost` | A message to a Mattermost [incoming webhook](https://developers.mattermost.com/integrate/webhooks/incoming/) with the name, size, mode, expiry and the `deaddrop fetch …` command in a code block. Markdown in the name is escaped, and `@` mentions in it (like `@channel`) are broken up so they don't ping anyone. With the key, it is added as inline code. |
+| `rocketchat` | A message to a Rocket.Chat [incoming webhook](https://docs.rocket.chat/docs/integrations) with the name as an attachment title (plain text, so it can't contain markup or mentions) and the size, mode, expiry and `deaddrop fetch …` command below it. `rocket.chat` works as the type too. With the key, it is added as inline code. |
+| `telegram` | A message from your Telegram bot with the name, size, mode, expiry and the `deaddrop fetch …` command in a copyable block. The shorthand is `telegram=<bot_token>@<chat_id>`: the token from [@BotFather](https://t.me/BotFather), and the chat id as a number (`-1001234567890`) or `@channelname`. In a `[[serve.notify]]` table these are `bot_token` and `chat_id`, plus optional `thread_id` (a forum topic) and `api_url` (a self-hosted Bot API server). With the key, it is shown as a spoiler. |
+| `ntfy` | A push notification to an [ntfy](https://ntfy.sh) topic (ntfy.sh or self-hosted): the name as the title, then the size, mode, expiry and the `deaddrop fetch …` command. The URL is the topic URL. For a protected topic, put `user:pass@` in the URL or set `token = "tk_…"`; `priority = 1`–`5` is optional. With the key, it is added to the message. |
+| `email` | A plain-text email over SMTP with the name, size, mode, expiry and the `deaddrop fetch …` command. `smtps://` uses TLS from the start (port 465), and `smtp://` requires STARTTLS (port 587). Add `?tls=opportunistic` to allow a server without STARTTLS, or `?tls=none` for a local relay; deaddrop refuses to send a password without TLS unless the server is on localhost. Put the sender and recipients in the query string (`?from=me@example.com&to=a@example.com&to=b@example.com`), or as `from` and `to` (one address or a list) in the table. Addresses can be `Name <a@example.com>`. Percent-encode `@`, `:` and `/` in the user name or password. With the key, it is added as `DEADDROP_KEY=…`. |
+| `twilio` | An SMS through [Twilio](https://www.twilio.com/docs/messaging) with the name, size, mode, expiry and the `deaddrop fetch …` command, in plain text so it fits in as few segments as possible. The shorthand is `twilio=<account_sid>:<auth_token>@<from>/<to>`, where `from` is a Twilio number, an alphanumeric sender id (in countries that allow them) or a Messaging Service SID (`MG…`), and `to` is an E.164 number like `+15552223333`. Use one notifier per recipient. Optional `api_key` (an `SK…` API key, with its secret as `auth_token`) and `api_url`. With the key, it is added as `DEADDROP_KEY=…`. |
 | `webhook` | `POST` with a JSON body. See the [webhook payload reference](/docs/reference/webhook/). |
+
+<Aside type="caution" title="Email, SMS and public ntfy topics">
+	Email and SMS aren't end-to-end encrypted: mail servers and carriers can
+	read them, so prefer another notifier for the key. On a public ntfy server
+	anyone who knows the topic can read it, so use a long random topic name,
+	and send the key only to a protected topic or your own server.
+</Aside>
 
 ## Failure handling
 
@@ -88,4 +134,4 @@ back to `deaddrop reset`. Notifiers with `include_key` get the only copies:
   ticket is still printed locally.
 - Logs never include webhook URLs.
 
-Want Slack, Matrix or something else? See [Adding a notifier](/docs/project/adding-a-notifier/).
+Want Matrix or something else? See [Adding a notifier](/docs/project/adding-a-notifier/).

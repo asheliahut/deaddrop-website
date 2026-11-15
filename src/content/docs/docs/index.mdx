@@ -1,6 +1,9 @@
 ---
 title: Introduction
-description: What deaddrop is, what it does, and when to reach for it.
+description: "deaddrop leeches a torrent (or takes any file) on a server without seeding, then hands it to one client over an encrypted peer-to-peer link."
+head:
+  - tag: title
+    content: "What is deaddrop? Encrypted P2P handoff without seeding"
 ---
 
 import { Card, CardGrid, LinkCard, Aside } from '@astrojs/starlight/components';
@@ -8,7 +11,8 @@ import { Card, CardGrid, LinkCard, Aside } from '@astrojs/starlight/components';
 **deaddrop** leeches a torrent on a server, hands it to one client over an
 encrypted peer-to-peer link, and leaves nothing behind.
 
-A server downloads a torrent **without seeding it**, then hands the files to a
+A server downloads a torrent **without seeding it** (or takes local files,
+stdin, or an http(s) download), then hands the files to a
 client over [iroh](https://iroh.computer): end-to-end encrypted peer-to-peer
 QUIC with NAT traversal and relay fallback. Neither side needs an open port.
 With `--encrypt`, the files are also [age](https://age-encryption.org)-encrypted
@@ -34,9 +38,11 @@ deaddrop serve --encrypt 'magnet:?xt=urn:btih:...'
 DEADDROP_KEY=AGE-SECRET-KEY-1... deaddrop fetch <ticket> -o ./downloads
 ```
 
-<Aside type="note" title="Coming from 1.0?">
-	In 2.0, age encryption is opt-in, and 1.0 and 2.0 clients and servers can't
-	be mixed. Upgrade both sides together. See [1.0 vs 2.0](/docs/whats-new/).
+<Aside type="note" title="New in 2.1">
+	Serve local files, stdin and URLs, let only `--allow`ed clients in, make
+	tickets `--expire-after` a while, resume interrupted fetches, and send
+	tickets to seven new notifiers. See [What's new in 2.1](/docs/whats-new/).
+	Coming from 1.0? Read [Upgrading from 1.0](/docs/upgrading-from-1/).
 </Aside>
 
 ## Why
@@ -73,9 +79,18 @@ DEADDROP_KEY=AGE-SECRET-KEY-1... deaddrop fetch <ticket> -o ./downloads
 		One client, one download, then the server shuts down, or wipes the data
 		and waits.
 	</Card>
+	<Card title="Only the right client" icon="approve-check-circle">
+		`--allow <ID>` turns away everyone but the clients you name, and
+		`--expire-after 24h` wipes a drop nobody picked up.
+	</Card>
+	<Card title="Not just torrents" icon="document">
+		Serve local files and directories in place, whatever is piped into
+		stdin, or a file the server downloads over http(s).
+	</Card>
 	<Card title="Hot swaps & notifications" icon="random">
 		`deaddrop reset` points a running server at a new torrent. Tickets can be
-		pushed to Discord or any webhook.
+		pushed to Discord, Slack, Mattermost, Rocket.Chat, Telegram, ntfy, email,
+		SMS or any webhook.
 	</Card>
 	<Card title="Progress bars" icon="bars">
 		For the torrent, each transfer on the server, and the client download,
@@ -95,6 +110,6 @@ DEADDROP_KEY=AGE-SECRET-KEY-1... deaddrop fetch <ticket> -o ./downloads
 
 <LinkCard title="Quick start" description="Serve and fetch your first drop in two commands." href="/docs/quick-start/" />
 <LinkCard title="Installation" description="Homebrew, prebuilt binaries for Linux, macOS and Windows, or build from source." href="/docs/installation/" />
-<LinkCard title="1.0 vs 2.0" description="What changed in 2.0, and how to upgrade." href="/docs/whats-new/" />
+<LinkCard title="What's new in 2.1" description="What 2.1 adds and changes, and how to upgrade." href="/docs/whats-new/" />
 <LinkCard title="How it works" description="The architecture, the no-seeding guarantee and the encryption design." href="/docs/concepts/architecture/" />
 <LinkCard title="GitHub" description="Source code, issues and releases." href="https://github.com/asheliahut/deaddrop" />

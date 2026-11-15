@@ -1,6 +1,9 @@
 ---
 title: Quick start
-description: Serve a torrent from a server and fetch it on a client in two commands.
+description: "Serve a torrent from a server and fetch it on your own machine in two commands, with no open ports and no copy left behind afterwards."
+head:
+  - tag: title
+    content: "deaddrop quick start: serve and fetch a drop in two commands"
 ---
 
 import { Steps, Aside, Tabs, TabItem } from '@astrojs/starlight/components';
@@ -87,7 +90,9 @@ deaddrop fetch blobafk3...q7z -o ./downloads
 
 - Keep serving to many clients with [`--multi-use`](/docs/guides/serving/#single-use-vs-multi-use).
 - Swap a running server to a new torrent with [`deaddrop reset`](/docs/guides/resetting/).
-- Push tickets to Discord or a webhook with [notifications](/docs/guides/notifications/).
+- Push tickets to Discord, Slack, Telegram, email and more with [notifications](/docs/guides/notifications/).
+- Serve [local files, stdin or a URL](/docs/guides/serving/#sources) instead of a torrent.
+- Let only [specific clients](/docs/guides/allow/) download, and make tickets [expire](/docs/guides/expiring/).
 - Learn when to use [`--encrypt` and `--hide-key`](/docs/guides/encrypting/).
 - Put your settings in a [config file](/docs/guides/config/).
 - Let your AI coding agent drive it with the [agent skill](/docs/guides/agent-skill/).

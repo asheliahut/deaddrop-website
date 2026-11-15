@@ -1,0 +1,196 @@
+---
+title: Troubleshooting
+description: "What each deaddrop error message means and how to fix it: refused fetches, expired or reset tickets, interrupted downloads and missing keys."
+head:
+  - tag: title
+    content: "Troubleshooting deaddrop errors"
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Messages below are quoted as deaddrop prints them on stderr. For more
+detail, turn logging on with `RUST_LOG=info` (see
+[Progress & logging](/docs/guides/progress/#logging)).
+
+## `fetch` was turned away
+
+A 2.1 server says why it won't serve a client. Only a busy slot is retried;
+everything else stops at once.
+
+### "another client is downloading from this single-use server"
+
+Someone else got the single-use slot first. `fetch` waits quietly for up to
+`--retry-for` seconds (default 120) in case that download fails and the slot
+frees up.
+
+- If it then gives up: run the same command again later, or ask the sender
+  whether someone else already has it.
+- If you see **"the server was busy with another client's download and then
+  stopped answering"**, that other download most likely finished and the
+  server deleted the data and shut down. Ask for a new ticket.
+- If you see **"the server's download slot is still taken, probably by this
+  client's dropped connection"**, it's your own earlier connection. After a
+  crash or a lost network, the server takes up to about 30 s to notice. Just
+  wait; `fetch` keeps retrying.
+
+### "this single-use drop has already been downloaded"
+
+Someone (maybe you, in an earlier run) already fetched it, and the server
+deleted the data. Ask the sender for a new ticket.
+
+### "this ticket expired before it was downloaded"
+
+The server was started with [`--expire-after`](/docs/guides/expiring/) and
+the time ran out. The data is gone. Ask for a new ticket.
+
+### "this ticket no longer works: the server was reset to serve something else"
+
+Someone ran [`deaddrop reset`](/docs/guides/resetting/). Ask for the new
+ticket.
+
+### "the server isn't serving this ticket"
+
+Usually a ticket that was cut off when it was copied, or an old one. Tickets
+are long; check you have the whole line.
+
+### "the server only accepts specific clients"
+
+The server uses [`--allow`](/docs/guides/allow/) and your id isn't on the
+list. The message tells you what to do:
+
+- If it shows an id, send that id to the server's operator to add with
+  `--allow <id>`.
+- If it says "this fetch had no identity", run `deaddrop id` first, send the
+  id it prints, and fetch again once they've added it.
+
+If you were allowed before, check you're using the same identity file (or
+that nobody ran `deaddrop id --new`).
+
+### Just "permission"
+
+The server runs a version older than 2.1, which doesn't say why. It's one of
+the reasons above (busy, already downloaded, or reset). Ask the sender to
+upgrade.
+
+## Downloads that don't finish
+
+### "the partial download is kept in .deaddrop-…; run the same command again to resume"
+
+The connection dropped and `fetch` gave up after `--retry-for` seconds
+without progress. Nothing is lost: run the **same command with the same
+`-o`** and it only downloads what's missing. Delete the `.deaddrop-<hash>`
+folder to give up.
+
+On a slow or flaky link, give it more time: `--retry-for 600` (or
+`retry_for` under `[fetch]`).
+
+### "deleted the partial download; it can't be finished"
+
+The server said the drop was already downloaded, expired or replaced, so
+what you had can never be completed. Ask for a new ticket.
+
+### The `.deaddrop-<hash>` folder is still there after an error
+
+That's on purpose: it holds the partial download (or, for encrypted data,
+the whole download waiting for the key). Run the same command again, or
+delete it.
+
+## Encryption
+
+### "the data is encrypted: pass the decryption key"
+
+The server used [`--encrypt`](/docs/guides/encrypting/). Run the same command
+again with `DEADDROP_KEY=AGE-SECRET-KEY-1...`. The download is kept, so this
+works without the server, even after a single-use server has shut down.
+
+### "note: the data is not encrypted; ignoring the decryption key"
+
+Harmless: the server didn't use `--encrypt`, so the key isn't needed.
+
+### A wrong key or tampered data
+
+An error, and no file is written under its real name. Check you have the key
+that was printed with **this** ticket: every torrent, and every reset, gets a
+new one.
+
+## Server side
+
+### My files disappeared from `--data-dir`
+
+Since 2.1, a **single-use server deletes its data once the download is
+done**, also from a `--data-dir`, and when a ticket expires. Use
+`--multi-use` if the data should stay. Local files you serve directly
+(`deaddrop serve ./file`) are never deleted.
+
+### "--name only applies to stdin (`-`) or an http(s) download"
+
+`--name` sets the file name for `-` or a URL. Local files and torrents keep
+their own names.
+
+### "--as-is can't serve a magnet link; it has no file to serve"
+
+`--as-is` serves a `.torrent` file or URL as a plain file. A magnet link has
+nothing to serve as a file.
+
+### "nothing to serve: … has no files"
+
+A directory with no regular files in it. Symlinks inside directories,
+special files and empty folders are skipped.
+
+### Local files can't be inside the data dir
+
+deaddrop refuses to serve local files from inside its own data dir, since it
+deletes data there. Move them, or pick another `--data-dir`.
+
+### The client rejects a download of local files
+
+The files changed while they were served. The client checks every chunk
+against the hash taken when serving started. Don't change files while
+they're served; restart `serve` after changing them.
+
+### "bad --expire-after" / "bad --allow"
+
+`--expire-after` takes durations like `90s`, `30m`, `24h`, `7d` or `1h30m`
+(a bare number is seconds). `--allow` takes the 64-character hex id that
+`deaddrop id` prints.
+
+## Notifications
+
+### A notifier fails
+
+The server prints `notify: warning: <notifier> failed: <error>` and keeps
+serving; the ticket is still on stdout. Common causes:
+
+- **Email:** a provider that wants an app password, `@` or `:` in the user
+  name or password that isn't percent-encoded, or the wrong scheme for the
+  port (`smtps://` for 465, `smtp://` for 587).
+- **Twilio:** a trial account texting a number that isn't verified, or a
+  number that isn't in E.164 form (`+15552223333`).
+- **Telegram:** the bot isn't in the chat (or isn't an admin of the channel),
+  or the chat id is missing its `-100` prefix.
+- **ntfy:** a protected topic without `token` or `user:pass@`.
+
+[Setting up notifiers](/docs/guides/notifier-setup/) walks through each one,
+with a way to send a test message.
+
+### "email needs a from address" / "email needs at least one to address"
+
+Add `?from=…&to=…` to the URL, or `from` and `to` in its `[[serve.notify]]`
+table.
+
+### `--hide-key` won't start
+
+With `--hide-key`, the key is never printed, so at least one notifier must
+have `include_key` (or `+key`). Otherwise nobody would get it.
+
+## Connections
+
+If `fetch` can't connect at all, check the path it prints, and see
+[Connections & relays](/docs/guides/relays/). With relays disabled on either
+side, both must reach each other directly.
+
+<Aside>
+	Still stuck? [Open an issue](https://github.com/asheliahut/deaddrop/issues)
+	with the output of `deaddrop --version` and the messages from both sides
+	(remove tickets, keys and URLs first).
+</Aside>

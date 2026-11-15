@@ -1,13 +1,18 @@
 ---
-// swarm → server → client, with packets animating along each link.
+// source → server → client, with packets animating along each link.
 // Horizontal on wide screens, vertical on phones.
 ---
 
-<div class="flow" role="img" aria-label="BitTorrent swarm sends data to the deaddrop server, which never uploads. The server sends the files over an end-to-end encrypted iroh connection to the client, which verifies them. With --encrypt, the server also age-encrypts the files and the client decrypts them.">
+<div class="flow" role="img" aria-label="A torrent (leeched from the BitTorrent swarm, never uploading), local files, stdin or an http(s) download goes to the deaddrop server. The server sends the files over an end-to-end encrypted iroh connection to the client, which verifies them. With --encrypt, the server also age-encrypts the files and the client decrypts them.">
 	<div class="node">
 		<div class="icon">🌐</div>
 		<div class="name">BitTorrent swarm</div>
 		<div class="sub">peers, trackers, DHT</div>
+		<ul class="also" aria-hidden="true">
+			<li>or files</li>
+			<li>stdin</li>
+			<li>http(s)</li>
+		</ul>
 	</div>
 
 	<div class="link one-way">
@@ -69,6 +74,26 @@
 		margin-top: 4px;
 		font-size: 0.78rem;
 		color: var(--muted);
+	}
+	.also {
+		list-style: none;
+		margin: 12px 0 0;
+		padding: 10px 0 0;
+		border-top: 1px dashed var(--line);
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: 4px;
+	}
+	.also li {
+		margin: 0;
+		font-family: var(--mono);
+		font-size: 0.7rem;
+		line-height: 1.4;
+		color: var(--fg-2);
+		border: 1px solid var(--line);
+		border-radius: 999px;
+		padding: 1px 7px;
 	}
 	.sub .opt {
 		font-family: var(--mono);

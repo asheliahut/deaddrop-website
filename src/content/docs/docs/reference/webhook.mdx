@@ -1,13 +1,16 @@
 ---
 title: Webhook payload
-description: The JSON body the `webhook` notifier POSTs.
+description: "The JSON body the deaddrop webhook notifier POSTs when a ticket is ready: every field, when each one is present, and how delivery and timeouts work."
+head:
+  - tag: title
+    content: "deaddrop webhook payload (JSON)"
 ---
 
 import { Aside } from '@astrojs/starlight/components';
 
 The `webhook` notifier sends a `POST` with a JSON body when a ticket is ready.
-The example below is for a server with `--encrypt` and a notifier with
-`include_key`; otherwise there's no `key` field.
+The example below is for a server with `--encrypt` and `--expire-after`, and a
+notifier with `include_key`; otherwise there's no `key` or `expires_at` field.
 
 ```json title="POST <your url>"
 {
@@ -19,6 +22,7 @@ The example below is for a server with `--encrypt` and a notifier with
   "total_bytes": 6114656256,
   "single_use": true,
   "reset": false,
+  "expires_at": 1763251200,
   "key": "AGE-SECRET-KEY-1..."
 }
 ```
@@ -26,13 +30,14 @@ The example below is for a server with `--encrypt` and a notifier with
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `event` | string | Always `"ticket_ready"` for now. New event types may be added, so ignore ones you don't know. |
-| `name` | string | The torrent's name |
+| `name` | string | The drop's name: the torrent's name, the file or directory name, or `--name` |
 | `ticket` | string | The iroh ticket to pass to `deaddrop fetch` |
 | `fetch_command` | string | The full command a client should run |
 | `files` | number | Number of files |
 | `total_bytes` | number | Total size in bytes |
 | `single_use` | bool | `true` if the server shuts down (or waits for a reset) after one download |
 | `reset` | bool | `true` if this ticket replaces an earlier one after a reset. The old ticket no longer works. |
+| `expires_at` | number | When the ticket stops working, in Unix seconds. **Only present** with [`--expire-after`](/docs/guides/expiring/). New in 2.1. |
 | `key` | string | The decryption key. **Only present** when the server uses `--encrypt` and the notifier has `include_key = true` / `+key`. |
 
 ## Delivery

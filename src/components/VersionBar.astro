@@ -1,8 +1,8 @@
 ---
 // Version bar shown at the top of every docs page (it overrides Starlight's
 // Banner slot) and on the landing page. The docs always describe the current
-// release; the bar points people coming from the previous major at the page
-// that lists what changed. A page's own `banner` frontmatter still renders
+// release; the bar points people at the page that lists what's new since the
+// previous release. A page's own `banner` frontmatter still renders
 // underneath it.
 import { PREV_VERSION, VERSION } from '../site';
 
@@ -12,9 +12,9 @@ interface Props {
 }
 
 const { variant = 'docs' } = Astro.props;
-const major = (v: string) => v.replace(/^v/, '').replace(/\.0\.0$/, '.0');
-const current = major(VERSION);
-const previous = major(PREV_VERSION);
+const short = (v: string) => v.replace(/^v/, '').replace(/\.0$/, '');
+const current = short(VERSION);
+const previous = short(PREV_VERSION);
 const href = '/docs/whats-new/';
 const onPage = Astro.url.pathname.replace(/\/$/, '') === href.replace(/\/$/, '');
 const banner = variant === 'docs' ? Astro.locals.starlightRoute?.entry.data.banner : undefined;
@@ -26,12 +26,13 @@ const banner = variant === 'docs' ? Astro.locals.starlightRoute?.entry.data.bann
 		{
 			onPage ? (
 				<>
-					Comparing deaddrop <strong>{previous}</strong> and <strong>{current}</strong>. Everything else on this site
-					describes <strong>{current}</strong>.
+					What's new in deaddrop <strong>{current}</strong> since <strong>{previous}</strong>. Everything else on this
+					site describes <strong>{current}</strong>.
 				</>
 			) : (
 				<>
-					These docs are for deaddrop <strong>{current}</strong>, the latest release. Encryption at rest is now opt-in.
+					These docs are for deaddrop <strong>{current}</strong>: serve local files, stdin and URLs, allow-listed
+					clients, expiring tickets, resumable fetches and seven new notifiers.
 				</>
 			)
 		}
@@ -39,7 +40,7 @@ const banner = variant === 'docs' ? Astro.locals.starlightRoute?.entry.data.bann
 	{
 		!onPage && (
 			<a class="vb-link" href={href}>
-				What changed since {previous} →
+				What's new in {current} →
 			</a>
 		)
 	}

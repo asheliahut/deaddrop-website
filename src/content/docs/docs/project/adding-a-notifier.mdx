@@ -1,6 +1,9 @@
 ---
 title: Adding a notifier
-description: Add a new notification target (Slack, Matrix, ntfy...) in about two files.
+description: "Add a new deaddrop notification target, such as Matrix or Pushover, in about two files: implement the Notifier trait, then register it and its config."
+head:
+  - tag: title
+    content: "Adding a new notifier to deaddrop"
 ---
 
 import { Steps, FileTree } from '@astrojs/starlight/components';
@@ -10,26 +13,28 @@ Notifiers live in `src/notify/`:
 <FileTree>
 - src/notify/
   - mod.rs `Notifier` trait, `NotifierConfig`, `Event`
-  - discord.rs
-  - webhook.rs
-  - **slack.rs** your new notifier
+  - discord.rs, email.rs, mattermost.rs, ntfy.rs, rocketchat.rs
+  - slack.rs, telegram.rs, twilio.rs, webhook.rs
+  - **matrix.rs** your new notifier
 </FileTree>
 
 <Steps>
 
-1. Create `src/notify/slack.rs` with a struct that implements the `Notifier`
-   trait: `label()` and `send(&Event)`.
+1. Create `src/notify/matrix.rs` with a struct that implements the `Notifier`
+   trait: `label()` and `send(&Event)`. `slack.rs` is a short one to copy for
+   a chat message.
 
 2. Register it in `src/notify/mod.rs`:
-   - add `mod slack;`
-   - add a `Slack { ... }` variant to `NotifierConfig` with the settings it needs
+   - add `mod matrix;`
+   - add a `Matrix { ... }` variant to `NotifierConfig` with the settings it needs
    - add an arm to the `match` in `NotifierConfig::build`
 
 </Steps>
 
 The variant's fields are what users write in their `[[serve.notify]]` table
-(`type = "slack"` plus those fields). If its main setting is called `url`, the
-`--notify slack=<url>` shorthand works with no extra code.
+(`type = "matrix"` plus those fields). If its main setting is called `url`, the
+`--notify matrix=<url>` shorthand works with no extra code. Otherwise, add a
+case to `NotifierConfig::parse_shorthand`, as Telegram and Twilio do.
 
 ## A starting point
 
@@ -73,8 +78,11 @@ impl Notifier for Webhook {
   `--encrypt` and the notifier has `include_key`. Don't send it anywhere else,
   and render the event fine without it. With `--hide-key`, your notifier may
   hold the only copy.
-- **Escape user content.** Torrent names are untrusted. The Discord notifier
-  escapes markdown and turns mentions off.
+- **Escape user content.** Names are untrusted. The Discord notifier escapes
+  markdown and turns mentions off; Mattermost breaks up `@` mentions;
+  Rocket.Chat puts the name in a plain-text attachment title.
+- **Show the expiry.** With `--expire-after`, the event says when the ticket
+  stops working. Render it if the target can.
 - **Print with `say!`.** Status lines go through the `say!` macro so they
   print above progress bars without breaking them.
 

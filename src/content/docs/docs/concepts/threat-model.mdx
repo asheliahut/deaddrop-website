@@ -1,6 +1,9 @@
 ---
 title: Threat model
-description: Who can learn what, and which limits are by design.
+description: "Who can see what when you use deaddrop (swarm, relays, ticket holders, server root), what deaddrop promises, and which limits are by design."
+head:
+  - tag: title
+    content: "deaddrop threat model and security promises"
 ---
 
 import { Aside } from '@astrojs/starlight/components';
@@ -12,10 +15,11 @@ import { Aside } from '@astrojs/starlight/components';
 | **BitTorrent swarm, trackers, DHT** | The server's IP address and that it downloaded the torrent | Anything from the server: it never uploads |
 | **iroh relays, address lookup, network observers** | Which endpoints talked, their IP addresses, and roughly how much data moved | The data, file names, the torrent name, the key: relays only forward end-to-end encrypted packets |
 | **Someone with the ticket** (default) | Everything: contents, file names, sizes | — |
+| **Someone with the ticket, not on the `--allow` list** | That the server exists and turns them away | Contents, file names, sizes: they're refused right after the handshake |
 | **Someone with the ticket** (`--encrypt`) | The ciphertext, file sizes and file count | Contents, file names, torrent name |
 | **Someone with the ticket and the key** (`--encrypt`) | Everything | — |
 | **Someone with the ticket and the reset token** | Can switch the server to another torrent | The key for the current torrent |
-| **A notifier without `include_key`** | The ticket, torrent name, size, file count. Without `--encrypt` the ticket alone gives access. | The key |
+| **A notifier without `include_key`** | The ticket, name, size, file count, and the expiry with `--expire-after`. Without `--encrypt` the ticket alone gives access. | The key |
 | **Someone with root on the server** | Plaintext on disk during the download, and while it's served without `--encrypt`. With `--encrypt` and no `--hide-key`, the key in the server's output. | — |
 
 ## Promises
@@ -35,10 +39,17 @@ These are things deaddrop promises. Breaking one is a
 - **No seeding:** no torrent piece data is uploaded and no incoming BitTorrent
   connections are accepted.
 - **Single use:** a second client can't download from a single-use server, a
-  size probe is never counted as the one download, and an old ticket stops
-  serving data after a reset.
-- **Reset protocol:** no reset without the right token, and a reset source is
-  never read as a path on the server's disk.
+  size probe or `fetch --list` is never counted as the one download, and an
+  old ticket stops serving data after a reset.
+- **Allow list:** with `--allow`, a client whose id isn't listed gets no data
+  or file list.
+- **Expiry:** with `--expire-after`, no new download or listing starts after
+  the ticket expires.
+- **Local files:** files and directories given to `serve` are never moved,
+  changed or deleted.
+- **Reset protocol:** no reset without the right token, a reset source is
+  never read as a path on the server's disk, and a reset only ever brings in
+  a torrent.
 - **Secrets in output:** webhook URLs and reset tokens don't show up in logs,
   `deaddrop config check` or error messages.
 - **`deaddrop skill`:** never writes outside the chosen skills directory, and
@@ -49,8 +60,8 @@ These are things deaddrop promises. Breaking one is a
 <Aside type="caution">
 These are by design and out of scope for security reports:
 
-- Without `--encrypt` (the default), anyone holding the ticket can download
-  and read the data, and it's stored on the server's disk as plaintext while
+- Without `--encrypt` (the default) and without `--allow`, anyone holding the
+  ticket can download and read the data, and it's stored on the server's disk as plaintext while
   it's served.
 - File sizes, file count, and the fact that a transfer happened are not hidden.
 - Plaintext exists on the server's disk while the torrent downloads, and
@@ -63,12 +74,22 @@ These are by design and out of scope for security reports:
   it leeches.
 - Relay servers (n0's public ones by default) and the address lookup service
   see which endpoints connect and their IP addresses, but never the data.
+- A client's id isn't secret, but its identity file is: anyone with a copy of
+  it can pass as that client. With an identity file, every server the client
+  fetches from sees the same id.
+- A download already running when a ticket expires may finish.
+- Email and SMS notifications aren't end-to-end encrypted, and a public ntfy
+  topic can be read by anyone who knows its name.
 - What an AI agent does with the instructions in the `deaddrop` skill.
 </Aside>
 
 ## Hardening tips
 
 - Treat the ticket as a secret: without `--encrypt` it is all anyone needs.
+- Use [`--allow`](/docs/guides/allow/) so a leaked ticket is useless to
+  anyone but the clients you name, and
+  [`--expire-after`](/docs/guides/expiring/) so an unclaimed drop doesn't sit
+  on disk.
 - Use [`--encrypt`](/docs/guides/encrypting/) when the server's disk or the
   channel the ticket travels over isn't trusted, and send the ticket and the
   key over **different channels**.
@@ -78,7 +99,8 @@ These are by design and out of scope for security reports:
   command-line flags for webhook URLs, reset tokens and the key, to keep them
   out of shell history and `ps`.
 - Use a long random reset token, e.g. `openssl rand -hex 32`.
-- Only give `include_key` to notifiers you trust with the data.
+- Only give `include_key` to notifiers you trust with the data. Not email,
+  SMS or a public ntfy topic.
 - Run your own [iroh relay](/docs/guides/relays/) if connection metadata
   shouldn't go through n0's public relays.
 - Verify release downloads against `SHA256SUMS`, and keep up to date

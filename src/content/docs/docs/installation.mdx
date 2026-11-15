@@ -1,6 +1,9 @@
 ---
 title: Installation
-description: Install deaddrop with Homebrew, from a prebuilt binary, or from source.
+description: "Install deaddrop with Homebrew, a prebuilt binary for Linux, macOS or Windows on Intel or ARM, or build it from source with Cargo."
+head:
+  - tag: title
+    content: "Install deaddrop on Linux, macOS or Windows"
 ---
 
 import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
@@ -52,7 +55,7 @@ and `LICENSE`.
 <TabItem label="Linux">
 
 ```sh
-VERSION=v2.0.0
+VERSION=v2.1.0
 TARGET=x86_64-unknown-linux-musl   # static build; or aarch64-unknown-linux-musl, *-linux-gnu
 curl -LO "https://github.com/asheliahut/deaddrop/releases/download/$VERSION/deaddrop-$VERSION-$TARGET.tar.gz"
 tar -xzf "deaddrop-$VERSION-$TARGET.tar.gz"
@@ -63,7 +66,7 @@ sudo install "deaddrop-$VERSION-$TARGET/deaddrop" /usr/local/bin/
 <TabItem label="macOS">
 
 ```sh
-VERSION=v2.0.0
+VERSION=v2.1.0
 TARGET=aarch64-apple-darwin        # or x86_64-apple-darwin on Intel
 curl -LO "https://github.com/asheliahut/deaddrop/releases/download/$VERSION/deaddrop-$VERSION-$TARGET.tar.gz"
 tar -xzf "deaddrop-$VERSION-$TARGET.tar.gz"
@@ -74,7 +77,7 @@ sudo install "deaddrop-$VERSION-$TARGET/deaddrop" /usr/local/bin/
 <TabItem label="Windows">
 
 ```powershell
-$v = "v2.0.0"
+$v = "v2.1.0"
 $t = "x86_64-pc-windows-msvc"      # or aarch64-pc-windows-msvc
 Invoke-WebRequest "https://github.com/asheliahut/deaddrop/releases/download/$v/deaddrop-$v-$t.zip" -OutFile deaddrop.zip
 Expand-Archive deaddrop.zip -DestinationPath .
@@ -110,13 +113,17 @@ gh attestation verify "deaddrop-$VERSION-$TARGET.tar.gz" --repo asheliahut/deadd
 	`xattr -d com.apple.quarantine ./deaddrop`.
 </Aside>
 
-## Upgrading from 1.x
+## Upgrading
 
-<Aside type="caution" title="2.0 has breaking changes">
-	age encryption is now opt-in (`--encrypt`), and a 2.0 client can't download
-	from a 1.0 single-use server (and a 1.0 client can't download from a 2.0
-	server), so upgrade servers and clients together. See
-	[1.0 vs 2.0](/docs/whats-new/#upgrading-from-10) for the checklist.
+From **2.0**, upgrade in any order: 2.0 and 2.1 clients and servers work
+together. A single-use server now deletes its data after the download, also
+from a `--data-dir`. See [What's new in 2.1](/docs/whats-new/#upgrading-from-20).
+
+<Aside type="caution" title="Coming from 1.x?">
+	2.0 had breaking changes: age encryption is opt-in (`--encrypt`), and 1.x
+	clients and servers can't be mixed with 2.x ones, so upgrade servers and
+	clients together. See [Upgrading from 1.0](/docs/upgrading-from-1/#upgrade-checklist)
+	for the checklist.
 </Aside>
 
 ## From source

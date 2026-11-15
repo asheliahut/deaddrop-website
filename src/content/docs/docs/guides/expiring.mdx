@@ -1,0 +1,52 @@
+---
+title: Expiring tickets
+description: "Use serve --expire-after so a drop nobody picks up is wiped after 30 minutes, a day or a week, instead of sitting on the server forever."
+head:
+  - tag: title
+    content: "Expiring deaddrop tickets (--expire-after)"
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+A single-use drop that nobody picks up stays on the server's disk until
+someone notices. `--expire-after <DURATION>` puts a deadline on each ticket:
+
+```sh
+deaddrop serve x.torrent --expire-after 24h
+```
+
+## How it behaves
+
+- **The clock starts when the ticket is printed**, not while the torrent
+  downloads.
+- **When it runs out, the ticket stops working:** no new download or listing
+  starts, and `fetch` says the ticket expired instead of retrying.
+- **A download that is already running may finish.** Ctrl-C cuts it off.
+- **Then the data is deleted and the server exits.** With
+  [`--wait-for-reset`](/docs/guides/wait-for-reset/), it deletes the data and
+  waits for the next reset instead, and every new ticket gets the full time
+  again.
+- Local files given as the source are never deleted.
+
+## Durations
+
+Like `90s`, `30m`, `24h`, `7d` or `1h30m`. A bare number is seconds, and `0`
+or `never` turns a config file's `expire_after` off.
+
+| Where | Setting |
+| --- | --- |
+| Command line | `--expire-after 24h` |
+| Environment | `DEADDROP_EXPIRE_AFTER=24h` |
+| Config file | `expire_after = "24h"` under `[serve]` |
+
+## Notifications
+
+[Notifiers](/docs/guides/notifications/) are told when the ticket expires.
+Discord and Slack show it in each reader's own time ("expires in 23 hours"),
+the others include it in the message, and the
+[webhook JSON](/docs/reference/webhook/) gets `expires_at` (Unix seconds).
+
+<Aside type="tip">
+	Combine it with [`--allow`](/docs/guides/allow/) so only the right client
+	can pick the drop up, and nothing is left behind if they don't.
+</Aside>

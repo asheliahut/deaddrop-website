@@ -1,0 +1,211 @@
+---
+title: Setting up notifiers
+description: "Step-by-step setup for each deaddrop notifier (Discord, Slack, Telegram, ntfy, email, SMS and more), from creating the webhook or bot to a test message."
+head:
+  - tag: title
+    content: "Setting up deaddrop notifiers, step by step"
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+[Notifications](/docs/guides/notifications/) explains what each notifier
+sends and who gets the key. This page is about getting the URL, token or
+address each one needs in the first place.
+
+## Send a test message
+
+Once a notifier is set up, serve a tiny file from stdin to try it without a
+torrent:
+
+```sh
+echo hello | deaddrop serve - --name test.txt --notify slack=https://hooks.slack.com/services/...
+```
+
+Bad settings are rejected at startup. Once the ticket is ready, the server
+prints `notify: sent to <notifier>` on stderr for each one that worked, or
+`notify: warning: <notifier> failed: <error>`, and keeps serving either way.
+Press Ctrl-C when you're done.
+
+<Aside type="tip" title="Keep the secrets out of your shell history">
+	Every URL and token on this page is a secret. Once it works, move it to the
+	[config file](/docs/guides/config/) (`chmod 600`) or `DEADDROP_NOTIFY`.
+</Aside>
+
+## Discord
+
+<Steps>
+
+1. In the channel's settings, open **Integrations → Webhooks → New Webhook**.
+2. Name it, then **Copy Webhook URL**.
+3. Use it as `--notify discord=<URL>`, or:
+
+   ```toml
+   [[serve.notify]]
+   type = "discord"
+   url = "https://discord.com/api/webhooks/<id>/<token>"
+   ```
+
+</Steps>
+
+## Slack
+
+<Steps>
+
+1. Create an app at [api.slack.com/apps](https://api.slack.com/apps)
+   (**From scratch**), in your workspace.
+2. Under **Incoming Webhooks**, turn them on, then **Add New Webhook to
+   Workspace** and pick the channel.
+3. Copy the webhook URL (`https://hooks.slack.com/services/…`) and use it as
+   `--notify slack=<URL>`, or `type = "slack"` with `url`.
+
+</Steps>
+
+## Mattermost
+
+<Steps>
+
+1. A system admin must allow incoming webhooks (**System Console →
+   Integrations → Integration Management**).
+2. In your team, open **Integrations → Incoming Webhooks → Add Incoming
+   Webhook**, and pick the channel.
+3. Copy the URL (`https://<server>/hooks/<key>`) and use it as
+   `--notify mattermost=<URL>`, or `type = "mattermost"` with `url`.
+
+</Steps>
+
+## Rocket.Chat
+
+<Steps>
+
+1. As an admin, open **Administration → Workspace → Integrations → New →
+   Incoming**.
+2. Turn it on, set the channel (like `#drops`) and the user to post as, and
+   save.
+3. Copy the **Webhook URL** (`https://<server>/hooks/<id>/<token>`) and use it
+   as `--notify rocketchat=<URL>`, or `type = "rocketchat"` with `url`.
+
+</Steps>
+
+## Telegram
+
+<Steps>
+
+1. Message [@BotFather](https://t.me/BotFather), send `/newbot`, and follow
+   the prompts. It replies with the **bot token**, like
+   `123456789:AAE…`.
+2. Add the bot to the chat it should post in. For a channel, make it an
+   admin that can post messages. For a private chat with yourself, just send
+   the bot a message.
+3. Find the **chat id**. For a public channel it's `@channelname`. Otherwise,
+   send a message in the chat, then open
+   `https://api.telegram.org/bot<token>/getUpdates` and look for
+   `"chat":{"id":…}`. Groups and channels have negative ids, like
+   `-1001234567890`.
+4. Use them as `--notify telegram=<bot_token>@<chat_id>`, or:
+
+   ```toml
+   [[serve.notify]]
+   type = "telegram"
+   bot_token = "123456789:AAE_token_from_BotFather"
+   chat_id = -1001234567890        # or "@channelname"
+   # thread_id = 42                # a forum topic in the group
+   # api_url = "http://localhost:8081"   # a self-hosted Bot API server
+   ```
+
+</Steps>
+
+For a public channel on the command line, the chat id keeps its `@`:
+`telegram=<bot_token>@@channelname`.
+
+## ntfy
+
+<Steps>
+
+1. Pick a topic name. On the public [ntfy.sh](https://ntfy.sh), anyone who
+   knows it can read it, so make it long and random, e.g.
+   `openssl rand -hex 16`.
+2. Subscribe to it in the ntfy app (Android, iOS or the web app).
+3. Use the topic URL as `--notify ntfy=https://ntfy.sh/<topic>`, or
+   `type = "ntfy"` with `url`.
+
+</Steps>
+
+For a **protected topic** on your own server (or a reserved one on ntfy.sh),
+create an access token (on a self-hosted server, `ntfy token add <user>`) and
+set it as `token`, or put `user:pass@` in the URL:
+
+```toml
+[[serve.notify]]
+type = "ntfy"
+url = "https://ntfy.example.com/drops"
+token = "tk_..."
+priority = 4                     # 1 (min) to 5 (max); ntfy's default is 3
+```
+
+Send the key (`include_key`) only to a protected topic or your own server.
+
+## Email (SMTP)
+
+<Steps>
+
+1. Get your mail provider's **SMTP server and port**, and a user name and
+   password. Many providers (Gmail, iCloud, Fastmail and others) want an
+   **app password** here rather than your normal one.
+2. Pick the scheme from the port: `smtps://` for **465** (TLS from the start),
+   `smtp://` for **587** (STARTTLS).
+3. Percent-encode `@`, `:` and `/` in the user name or password (`@` is
+   `%40`).
+4. Use it as:
+
+   ```toml
+   [[serve.notify]]
+   type = "email"
+   url = "smtps://me%40example.com:app-password@smtp.example.com"
+   from = "deaddrop <me@example.com>"
+   to = ["you@example.com", "them@example.com"]
+   ```
+
+   Or on one line: `'email=smtps://user:pass@smtp.example.com?from=me@example.com&to=you@example.com'`
+   (quote it: `&` is a shell metacharacter).
+
+</Steps>
+
+For a **local relay** without TLS (like a Postfix on the same machine), use
+`smtp://localhost?tls=none`. deaddrop refuses to send a password without TLS
+unless the server is on localhost. `?tls=opportunistic` allows a server that
+doesn't offer STARTTLS.
+
+## SMS (Twilio)
+
+<Steps>
+
+1. In the [Twilio Console](https://console.twilio.com), copy the **Account
+   SID** (`AC…`) and **Auth Token**.
+2. Get a sender: a Twilio phone number, an alphanumeric sender id like
+   `Deaddrop` (only in countries that allow them), or a Messaging Service
+   (`MG…`).
+3. Write the recipient in E.164 form, like `+15552223333`. A trial account can
+   only text numbers you've verified in the console.
+4. Use them as `--notify twilio=<account_sid>:<auth_token>@<from>/<to>`, or:
+
+   ```toml
+   [[serve.notify]]
+   type = "twilio"
+   account_sid = "AC0123456789abcdef0123456789abcdef"
+   auth_token = "<auth token>"
+   from = "+15550001111"
+   to = "+15552223333"
+   # api_key = "SK..."            # log in with an API key; auth_token is then its secret
+   # api_url = "https://api.dublin.ie1.twilio.com"
+   ```
+
+</Steps>
+
+One notifier texts one number: add a `[[serve.notify]]` table per recipient.
+SMS isn't end-to-end encrypted, so prefer another notifier for the key.
+
+## Generic webhook
+
+Anything that accepts a JSON `POST`: your own service, a home automation
+hook, or an automation platform. Use `--notify webhook=<URL>`, and see the
+[webhook payload reference](/docs/reference/webhook/) for the body.
